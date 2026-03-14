@@ -29,3 +29,5 @@ temp/
 
 # Optional: summaries (uncomment to avoid committing generated .txt)
 # summaries/*.txt
+.vercel
+.env*.local

@@ -43,6 +43,11 @@ func (s *Server) Listen(addr string) error {
 	return s.app.Listen(addr)
 }
 
+// App returns the Fiber app for use with adaptor (e.g. Vercel serverless).
+func (s *Server) App() *fiber.App {
+	return s.app
+}
+
 func (s *Server) routes() {
 	s.app.Get("/", s.root)
 	s.app.Get("/api/health", s.health)

@@ -80,9 +80,42 @@ docker compose exec api /app/migrate
 
 ---
 
-## Deploy web app on Vercel
+## Deploy todo en Vercel (web + API, gratis sin tarjeta)
 
-Solo la **app web** (Next.js) se despliega en Vercel. La **API en Go** hay que desplegarla aparte (Railway, Render, Fly.io, etc.) y luego indicar su URL en Vercel.
+Puedes desplegar **web y API** en un solo proyecto de Vercel. La API en Go corre como función serverless; la base de datos puede ser **Neon** (Postgres gratis, sin tarjeta).
+
+**Guía paso a paso:** [docs/DEPLOY_VERCEL.md](docs/DEPLOY_VERCEL.md)
+
+### 1. Base de datos en Neon
+
+1. Entra en [neon.tech](https://neon.tech) y crea una cuenta (GitHub).
+2. Crea un proyecto y anota la **connection string** (Postgres).
+3. Ejecuta las migraciones una vez (desde tu máquina con esa URL):
+   ```bash
+   cd apps/api && DATABASE_URL="postgresql://..." go run cmd/migrate/main.go
+   ```
+
+### 2. Desplegar en Vercel
+
+1. [vercel.com/new](https://vercel.com/new) → Import el repo **daily-market-brief**.
+2. **Root Directory:** `apps/web`.
+3. **Variables de entorno:**
+   - **`DATABASE_URL`** = connection string de Neon (con `?sslmode=require` si hace falta).
+   - **`NEXT_PUBLIC_API_URL`** = `https://tu-dominio.vercel.app/api/v1` (la URL de tu deploy en Vercel + `/api/v1`).
+   - **`NEWS_SOURCES_JSON`** (opcional) = contenido completo del JSON de `config/news_sources.json` (para el panel admin en serverless; si no, admin dará "no config").
+4. Deploy. Vercel construye Next.js y la función Go en `api/`; las peticiones a `/api/v1/*` van a la API.
+
+### 3. Resumen
+
+- **Web:** calendario, día, semana, mes, traducción, etc.
+- **API:** resúmenes, health, admin (solo lectura si usas `NEWS_SOURCES_JSON`).
+- **Descarga .txt** por día no está disponible en serverless (no hay disco); el resto funciona con los datos en Neon.
+
+---
+
+## Deploy solo web en Vercel (API aparte)
+
+Solo la **app web** (Next.js) en Vercel. La **API en Go** desplegada aparte (Railway, Render, etc.) y su URL en `NEXT_PUBLIC_API_URL`.
 
 ### Pasos
 

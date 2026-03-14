@@ -8,15 +8,16 @@ import (
 // adminSourcesGet returns the current news sources config (sources + rss_sources).
 func (s *Server) adminSourcesGet(c *fiber.Ctx) error {
 	configDir := config.FindConfigDir()
-	if configDir == "" {
-		return c.Status(fiber.StatusServiceUnavailable).JSON(fiber.Map{
-			"error": "no se encontró config (news_sources.json). Usa CONFIG_DIR o arranca desde la raíz del repo o apps/api.",
-		})
+	var cfg *config.NewsSourcesConfig
+	var err error
+	if configDir != "" {
+		cfg, err = config.LoadNewsSources(configDir)
+	} else {
+		cfg, err = config.LoadNewsSourcesFromEnv()
 	}
-	cfg, err := config.LoadNewsSources(configDir)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "failed to load news sources config: " + err.Error(),
+		return c.Status(fiber.StatusServiceUnavailable).JSON(fiber.Map{
+			"error": "no config (news_sources.json or NEWS_SOURCES_JSON env).",
 		})
 	}
 	return c.JSON(fiber.Map{
@@ -32,9 +33,21 @@ type setEnabledBody struct {
 // adminSourceSetEnabled toggles the enabled flag for a source or rss_source by id.
 func (s *Server) adminSourceSetEnabled(c *fiber.Ctx) error {
 	configDir := config.FindConfigDir()
-	if configDir == "" {
+	var cfg *config.NewsSourcesConfig
+	var err error
+	if configDir != "" {
+		cfg, err = config.LoadNewsSources(configDir)
+	} else {
+		cfg, err = config.LoadNewsSourcesFromEnv()
+		if err == nil {
+			return c.Status(fiber.StatusServiceUnavailable).JSON(fiber.Map{
+				"error": "config is read-only on serverless (from NEWS_SOURCES_JSON).",
+			})
+		}
+	}
+	if err != nil {
 		return c.Status(fiber.StatusServiceUnavailable).JSON(fiber.Map{
-			"error": "no se encontró config. Usa CONFIG_DIR o arranca desde la raíz del repo o apps/api.",
+			"error": "no config",
 		})
 	}
 	id := c.Params("id")
@@ -44,13 +57,6 @@ func (s *Server) adminSourceSetEnabled(c *fiber.Ctx) error {
 	var body setEnabledBody
 	if err := c.BodyParser(&body); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid body, expected { \"enabled\": true|false }"})
-	}
-
-	cfg, err := config.LoadNewsSources(configDir)
-	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "failed to load config: " + err.Error(),
-		})
 	}
 
 	found := false

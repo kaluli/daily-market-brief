@@ -78,6 +78,20 @@ func LoadNewsSources(configDir string) (*NewsSourcesConfig, error) {
 	return &c, nil
 }
 
+// LoadNewsSourcesFromEnv reads news sources from env NEWS_SOURCES_JSON (full JSON).
+// Used on Vercel/serverless where there is no config dir.
+func LoadNewsSourcesFromEnv() (*NewsSourcesConfig, error) {
+	b := os.Getenv("NEWS_SOURCES_JSON")
+	if b == "" {
+		return nil, os.ErrNotExist
+	}
+	var c NewsSourcesConfig
+	if err := json.Unmarshal([]byte(b), &c); err != nil {
+		return nil, err
+	}
+	return &c, nil
+}
+
 // SaveNewsSources writes the news sources config back to news_sources.json.
 func SaveNewsSources(configDir string, c *NewsSourcesConfig) error {
 	b, err := json.MarshalIndent(c, "", "  ")
