@@ -90,9 +90,9 @@ Solo se hace **una vez**, desde tu ordenador.
 ## Paso 4: Configurar el proyecto en Vercel
 
 1. **Root Directory**
-   - Donde pone “Root Directory” déjalo **vacío** (raíz del repo).
-   - Así Vercel puede construir la web (desde `apps/web`) y la API Go (desde `api/` en la raíz). El `vercel.json` en la raíz ya define que el build sea `cd apps/web && npm run build`.
-2. **Framework Preset**: si no detecta Next.js, no importa; el build y la salida se definen en `vercel.json`.
+   - Pon **Root Directory** = **`apps/web`** (recomendado).
+   - Así el build es solo Next.js, más rápido y estable. La **API no se despliega** en este proyecto; la web funcionará y podés desplegar la API por otro medio (otro proyecto Vercel, Railway, etc.).
+2. **Framework Preset**: debe detectar Next.js.
 3. **No** pulses aún **Deploy**. Primero añadimos las variables.
 
 ---
@@ -141,20 +141,15 @@ Solo se hace **una vez**, desde tu ordenador.
 
 ---
 
-## Paso 7: Poner la URL real de la API
+## Paso 7: Poner la URL de la API (cuando la tengas desplegada)
 
-1. En Vercel, entra en tu proyecto → **Settings** → **Environment Variables**.
-2. Busca **NEXT_PUBLIC_API_URL** y pulsa **Edit** (o los tres puntos → Edit).
-3. Cambia el valor a (sustituye por tu URL real):
-   ```text
-   https://TU-URL-DEL-PASO-6.vercel.app/api/v1
-   ```
-   Ejemplo: si tu URL es `https://daily-market-brief-abc123.vercel.app`, el valor será:
-   ```text
-   https://daily-market-brief-abc123.vercel.app/api/v1
-   ```
-4. Guarda.
-5. Ve a **Deployments** → en el último deployment pulsa los tres puntos → **Redeploy** (o haz un nuevo commit y deja que redepliegue solo). Así la web usará la API correcta.
+Cuando despliegues la API en otro sitio (Railway, otro proyecto Vercel, etc.):
+
+1. En Vercel → **Settings** → **Environment Variables**.
+2. **NEXT_PUBLIC_API_URL** = URL base de tu API + `/api/v1`, por ejemplo:
+   - Si la API está en Railway: `https://tu-app.railway.app/api/v1`
+   - Si más adelante la API está en el mismo Vercel: `https://TU-DOMINIO.vercel.app/api/v1`
+3. Guarda y **Redeploy** para que la web use esa API.
 
 ---
 
@@ -165,12 +160,9 @@ Solo se hace **una vez**, desde tu ordenador.
 3. Prueba el health de la API:
    - **Opción A (función Go mínima):** `https://TU-URL.vercel.app/api/health` → `{"status":"ok","service":"market-brief-api"}`.
    - **Opción B (API completa vía proxy):** `https://TU-URL.vercel.app/api/v1/api/health` → mismo JSON.
-   - Si ves **404** en `/api/health` o `/api/v1/api/health`:
-     - En **Deployments** → último deploy → **Building** (logs): busca el paso `go build ./api/index.go`. Si falla, el error indicará qué falta (p. ej. módulo `../api`).
-     - En la pestaña **Functions** del deploy, comprueba si aparece una función para la ruta `/api`. Si no aparece, Vercel no está desplegando la función Go.
-     - El build copia `apps/web/.next` a la raíz para que Vercel detecte tanto Next.js como las funciones en `api/`. **Root Directory** debe estar **vacío** (raíz del repo).
+   - Con **Root = apps/web** la API no está en este deploy: `/api/v1/*` dará 404. Es esperado; desplegá la API por otro medio y configurá `NEXT_PUBLIC_API_URL` con esa URL.
 
-**Nota técnica:** La API Go está en la raíz del repo (`api/index.go`, `api/health.go`, `go.mod`). Las peticiones a `/api/v1/*` las atiende un Route Handler de Next.js que hace proxy a `/api` con el header `X-Forwarded-Path`.
+**Nota:** Con Root = apps/web, en este proyecto solo se despliega la web. La API la desplegás aparte; luego configurás `NEXT_PUBLIC_API_URL` para que la web la consuma.
 
 ---
 
@@ -204,7 +196,7 @@ La API en Vercel usa la base de datos de Neon, pero **ingest** y **summarize** s
 | 1 | Crear proyecto en Neon y copiar connection string |
 | 2 | Ejecutar migraciones con esa URL (una vez) |
 | 3 | Crear proyecto en Vercel e importar el repo |
-| 4 | Root Directory = **vacío** (raíz del repo) |
+| 4 | Root Directory = **`apps/web`** (solo web; API aparte) |
 | 5 | Añadir `DATABASE_URL`, `NEXT_PUBLIC_API_URL` (temporal) y opcionalmente `NEWS_SOURCES_JSON` |
 | 6 | Deploy y copiar la URL del deploy |
 | 7 | Cambiar `NEXT_PUBLIC_API_URL` a `https://TU-URL.vercel.app/api/v1` y redeploy |
