@@ -48,7 +48,7 @@ async function proxyToGo(request: NextRequest) {
     headers.set("X-Forwarded-Path", pathname);
   }
 
-  let body: BodyInit | undefined;
+  let body: string | undefined;
   try {
     body = await request.text();
   } catch {

@@ -4,6 +4,45 @@ Todo en un solo proyecto de Vercel, sin tarjeta. Base de datos en Neon (Postgres
 
 ---
 
+## Dónde está la API y checklist (API + Neon)
+
+### Dónde está la API
+
+| Qué | Dónde |
+|-----|--------|
+| **API Go (lógica, DB, rutas)** | `apps/api/` — `internal/api/`, `internal/db/`, `pkg/vercel/` |
+| **Entrada serverless en Vercel** | Raíz del repo: `api/index.go` y `api/health.go` + `go.mod` (usa `replace ... => ./apps/api`) |
+| **Proxy Next.js** | `apps/web/app/api/v1/[[...path]]/route.ts` — recibe `/api/v1/*` y hace fetch a `/api` con header `X-Forwarded-Path` |
+| **Frontend llama a la API** | `apps/web/lib/api.ts` — usa `NEXT_PUBLIC_API_URL` (ej. `https://tu-app.vercel.app/api/v1`) y arma rutas como `/api/health`, `/api/summaries/day/:day` |
+
+Rutas de la API (Fiber, en `apps/api/internal/api/server.go`): `/`, `/api/health`, `/api/summaries`, `/api/summaries/day/:day`, `/api/news/day/:day`, `/api/admin/sources`, etc.
+
+### Checklist: API bien configurada
+
+- [ ] **Vercel → Environment Variables**
+  - `DATABASE_URL` = connection string de Neon (ej. `postgresql://user:pass@ep-xxx.neon.tech/neondb?sslmode=require`).
+  - `NEXT_PUBLIC_API_URL` = `https://TU-DOMINIO.vercel.app/api/v1` (sin barra final).
+- [ ] **Vercel → General**
+  - **Root Directory** = vacío (raíz del repo), para que se construyan la web y las funciones Go en `api/`.
+- [ ] **Build**
+  - En el log del deploy aparece el paso `go build ... ./api/index.go` sin error.
+  - En **Functions** del deployment aparece una función para la ruta `/api`.
+
+### Checklist: Neon bien configurado
+
+- [ ] **Neon**
+  - Proyecto creado en [neon.tech](https://neon.tech); connection string copiada (con `?sslmode=require` si hace falta).
+- [ ] **Migraciones**
+  - Ejecutadas una vez desde local:  
+    `cd apps/api && DATABASE_URL="TU_CONNECTION_STRING" go run cmd/migrate/main.go`  
+    Salida esperada: `migrations ok`.
+- [ ] **Vercel**
+  - La misma connection string está en **Environment Variables** como `DATABASE_URL` (Production y/o Preview).
+
+Si la API devuelve 503 con `"api not configured (DATABASE_URL)"`, la función Go no tiene `DATABASE_URL` en el entorno (revisa variables en Vercel y redeploy).
+
+---
+
 ## Paso 1: Crear la base de datos en Neon
 
 1. Abre **[neon.tech](https://neon.tech)** en el navegador.
@@ -47,10 +86,9 @@ Solo se hace **una vez**, desde tu ordenador.
 ## Paso 4: Configurar el proyecto en Vercel
 
 1. **Root Directory**
-   - Donde pone “Root Directory” pulsa **Edit**.
-   - Escribe: `apps/web`
-   - Confirma (o elige la carpeta `apps/web` en el selector).
-2. No cambies **Framework Preset** (debe detectar Next.js).
+   - Donde pone “Root Directory” déjalo **vacío** (raíz del repo).
+   - Así Vercel puede construir la web (desde `apps/web`) y la API Go (desde `api/` en la raíz). El `vercel.json` en la raíz ya define que el build sea `cd apps/web && npm run build`.
+2. **Framework Preset**: si no detecta Next.js, no importa; el build y la salida se definen en `vercel.json`.
 3. **No** pulses aún **Deploy**. Primero añadimos las variables.
 
 ---
@@ -93,7 +131,7 @@ Solo se hace **una vez**, desde tu ordenador.
 1. Pulsa **Deploy**.
 2. Espera a que el build termine (puede tardar 1–2 minutos).
 3. Si algo falla, revisa:
-   - Root Directory = `apps/web`
+   - Root Directory = **vacío** (raíz del repo).
    - `DATABASE_URL` bien pegada (sin espacios al inicio/final).
 4. Cuando termine, verás algo como: **Visit** o una URL tipo `https://daily-market-brief-xxx.vercel.app`. **Cópiala**.
 
@@ -121,10 +159,14 @@ Solo se hace **una vez**, desde tu ordenador.
 1. Abre la URL de tu proyecto (la del Paso 6).
 2. Deberías ver el **calendario** (puede estar vacío si aún no hay datos).
 3. Prueba el health de la API:
-   - Abre en el navegador: `https://TU-URL.vercel.app/api/v1/api/health`
-   - Deberías ver algo como: `{"status":"ok","service":"market-brief-api"}`.
+   - **Opción A (función Go mínima):** `https://TU-URL.vercel.app/api/health` → `{"status":"ok","service":"market-brief-api"}`.
+   - **Opción B (API completa vía proxy):** `https://TU-URL.vercel.app/api/v1/api/health` → mismo JSON.
+   - Si ves **404** en `/api/health` o `/api/v1/api/health`:
+     - En **Deployments** → último deploy → **Building** (logs): busca el paso `go build ./api/index.go`. Si falla, el error indicará qué falta (p. ej. módulo `../api`).
+     - En la pestaña **Functions** del deploy, comprueba si aparece una función para la ruta `/api`. Si no aparece, Vercel no está desplegando la función Go.
+     - El build copia `apps/web/.next` a la raíz para que Vercel detecte tanto Next.js como las funciones en `api/`. **Root Directory** debe estar **vacío** (raíz del repo).
 
-**Nota técnica:** En Vercel, las peticiones a `/api/v1/*` las atiende un Route Handler de Next.js (`app/api/v1/[[...path]]/route.ts`) que hace proxy a la función Go en `/api` enviando el path original en el header `X-Forwarded-Path`. Así la API Go recibe bien la ruta aunque el rewrite de Vercel no la conserve.
+**Nota técnica:** La API Go está en la raíz del repo (`api/index.go`, `api/health.go`, `go.mod`). Las peticiones a `/api/v1/*` las atiende un Route Handler de Next.js que hace proxy a `/api` con el header `X-Forwarded-Path`.
 
 ---
 
@@ -158,7 +200,7 @@ La API en Vercel usa la base de datos de Neon, pero **ingest** y **summarize** s
 | 1 | Crear proyecto en Neon y copiar connection string |
 | 2 | Ejecutar migraciones con esa URL (una vez) |
 | 3 | Crear proyecto en Vercel e importar el repo |
-| 4 | Root Directory = `apps/web` |
+| 4 | Root Directory = **vacío** (raíz del repo) |
 | 5 | Añadir `DATABASE_URL`, `NEXT_PUBLIC_API_URL` (temporal) y opcionalmente `NEWS_SOURCES_JSON` |
 | 6 | Deploy y copiar la URL del deploy |
 | 7 | Cambiar `NEXT_PUBLIC_API_URL` a `https://TU-URL.vercel.app/api/v1` y redeploy |

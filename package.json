@@ -1,0 +1,8 @@
+{
+  "name": "daily-market-brief",
+  "private": true,
+  "scripts": {
+    "build": "cd apps/web && npm run build && cp -r .next ../.. && (cd ../.. && go build -v -o /dev/null ./api/index.go)",
+    "install": "cd apps/web && npm install"
+  }
+}
