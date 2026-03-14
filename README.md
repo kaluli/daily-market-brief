@@ -102,7 +102,45 @@ Solo la **app web** (Next.js) se despliega en Vercel. La **API en Go** hay que d
 4. **Deploy**  
    Pulsa *Deploy*. Vercel construye `apps/web` y publica la app.
 
-La API (Go + Postgres) se despliega por separado; en la documentación de Railway/Render/Fly.io se explica cómo exponer el puerto y la URL que debes poner en `NEXT_PUBLIC_API_URL`.
+La API (Go + Postgres) se despliega por separado. Opción **gratuita**: Render (ver abajo).
+
+---
+
+## Desplegar la API en Render (gratis)
+
+[Render](https://render.com) tiene plan gratuito para Web Service y Postgres (con límites). No hace falta tarjeta para empezar.
+
+### Pasos
+
+1. **Entra en Render**  
+   [dashboard.render.com](https://dashboard.render.com) → Sign up / Login (con GitHub).
+
+2. **Nuevo Blueprint**  
+   - **New** → **Blueprint**.  
+   - Conecta el repo **daily-market-brief** (GitHub).  
+   - Render detectará el `render.yaml` en la raíz del repo.
+
+3. **Aplicar el Blueprint**  
+   - Se crearán: 1 base de datos PostgreSQL (free) y 1 Web Service (API en Go).  
+   - Revisa que el servicio use el Dockerfile de `apps/api` y que `DATABASE_URL` venga de la base de datos.  
+   - Pulsa **Apply**.
+
+4. **Migraciones**  
+   La primera vez hay que crear las tablas. En el servicio de la API, **Shell** (o **Settings** → comando de inicio temporal), ejecuta:
+   ```bash
+   /app/migrate
+   ```
+   (El Dockerfile ya incluye el binario `migrate`.)
+
+5. **URL de la API**  
+   En el dashboard, el Web Service tendrá una URL tipo `https://daily-market-brief-api.onrender.com`. Cópiala.
+
+6. **Vercel (web)**  
+   En el proyecto de Vercel de la app web, añade la variable de entorno:
+   - **`NEXT_PUBLIC_API_URL`** = `https://daily-market-brief-api.onrender.com`  
+   y vuelve a desplegar.
+
+**Nota:** En plan free, el Web Service se **duerme** tras ~15 min sin peticiones; la primera petición tras eso puede tardar unos segundos (cold start). Los summaries (archivos `.txt`) no persisten entre despliegues; para tener datos puedes ejecutar `ingest` y `summarize` en local y subir los archivos, o añadir un cron job en Render que los genere.
 
 ---
 
