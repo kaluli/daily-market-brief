@@ -24,7 +24,7 @@ test:
 
 # Run API locally (needs Postgres)
 run-api:
-	cd apps/api && SUMMARIES_PATH=../../summaries go run cmd/server/main.go
+	cd apps/api && CONFIG_DIR=../../config SUMMARIES_PATH=../../summaries go run cmd/server/main.go
 
 # Run Web locally
 run-web:

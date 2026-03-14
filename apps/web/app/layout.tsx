@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { apiBaseUrl } from "@/lib/api";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -21,6 +22,7 @@ export default function RootLayout({
             </a>
             <a href="/" className="text-slate-400 hover:text-white">Calendar</a>
             <a href="/last-10" className="text-slate-400 hover:text-white">Last 10 days</a>
+            <a href={`${apiBaseUrl}/admin`} className="text-slate-400 hover:text-white" target="_blank" rel="noopener noreferrer">API status</a>
           </nav>
         </header>
         <main className="mx-auto max-w-5xl px-6 py-8">{children}</main>

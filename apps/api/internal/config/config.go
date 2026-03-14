@@ -6,6 +6,36 @@ import (
 	"path/filepath"
 )
 
+// FindConfigDir returns the directory containing news_sources.json.
+// It checks CONFIG_DIR env, then tries paths relative to cwd and to the executable.
+func FindConfigDir() string {
+	if d := os.Getenv("CONFIG_DIR"); d != "" {
+		if _, err := os.Stat(filepath.Join(d, "news_sources.json")); err == nil {
+			return d
+		}
+	}
+	// Relative to current working directory
+	for _, rel := range []string{"config", "../config", "../../config"} {
+		if _, err := os.Stat(filepath.Join(rel, "news_sources.json")); err == nil {
+			if abs, err := filepath.Abs(rel); err == nil {
+				return abs
+			}
+			return rel
+		}
+	}
+	// Relative to executable (e.g. when run from apps/api, exe is apps/api/server)
+	if exe, err := os.Executable(); err == nil {
+		exeDir := filepath.Dir(exe)
+		for _, rel := range []string{"config", "../config", "../../config"} {
+			p := filepath.Join(exeDir, rel, "news_sources.json")
+			if _, err := os.Stat(p); err == nil {
+				return filepath.Dir(p)
+			}
+		}
+	}
+	return ""
+}
+
 type NewsSourcesConfig struct {
 	Sources    []SourceConfig    `json:"sources"`
 	RSSSources []RSSSourceConfig `json:"rss_sources"`
@@ -46,6 +76,15 @@ func LoadNewsSources(configDir string) (*NewsSourcesConfig, error) {
 		return nil, err
 	}
 	return &c, nil
+}
+
+// SaveNewsSources writes the news sources config back to news_sources.json.
+func SaveNewsSources(configDir string, c *NewsSourcesConfig) error {
+	b, err := json.MarshalIndent(c, "", "  ")
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(filepath.Join(configDir, "news_sources.json"), b, 0644)
 }
 
 func LoadRankingWeights(configDir string) (*RankingWeightsConfig, error) {

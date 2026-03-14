@@ -7,6 +7,7 @@ API_DIR="$ROOT/apps/api"
 
 export DATABASE_URL="${DATABASE_URL:-postgres://marketbrief:marketbrief_secret@localhost:5432/marketbrief?sslmode=disable}"
 export SUMMARIES_PATH="${SUMMARIES_PATH:-$ROOT/summaries}"
+export CONFIG_DIR="${CONFIG_DIR:-$ROOT/config}"
 export PORT="${PORT:-3090}"
 
 echo "API: http://localhost:$PORT"

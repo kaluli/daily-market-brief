@@ -11,12 +11,14 @@ import (
 type Server struct {
 	db             *db.DB
 	summariesPath  string
+	configDir      string // if set, admin sources endpoints are enabled
 	analyst        analyst.Analyzer
 	app            *fiber.App
 }
 
 // New creates the API server. If a is nil, a stub analyst is used.
-func New(database *db.DB, summariesPath string, a analyst.Analyzer) *Server {
+// configDir: if non-empty, enables GET/PATCH /api/admin/sources (path to config folder containing news_sources.json).
+func New(database *db.DB, summariesPath string, a analyst.Analyzer, configDir string) *Server {
 	if a == nil {
 		a = analyst.NewStub()
 	}
@@ -29,6 +31,7 @@ func New(database *db.DB, summariesPath string, a analyst.Analyzer) *Server {
 	s := &Server{
 		db:            database,
 		summariesPath: summariesPath,
+		configDir:     configDir,
 		analyst:       a,
 		app:           app,
 	}
@@ -58,6 +61,11 @@ func (s *Server) routes() {
 	// Phase 4 stubs
 	s.app.Get("/api/agents/portfolios", s.stubPortfolios)
 	s.app.Get("/api/agents/portfolios/:id", s.stubPortfolioByID)
+
+	// Admin: panel HTML + API
+	s.app.Get("/admin", s.adminPage)
+	s.app.Get("/api/admin/sources", s.adminSourcesGet)
+	s.app.Patch("/api/admin/sources/:id/enabled", s.adminSourceSetEnabled)
 
 	// 404: evita "Cannot GET /"
 	s.app.Use(s.notFound)

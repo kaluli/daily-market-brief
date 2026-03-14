@@ -21,11 +21,39 @@
   ],
   "rss_sources": [
     {
-      "id": "reuters_markets",
+      "id": "reuters_business",
       "name": "Reuters Business",
       "url": "https://www.reutersagency.com/feed/?taxonomy=best-topics&post_type=best",
-      "enabled": false,
-      "weight": 1.1
+      "enabled": true,
+      "weight": 1.2
+    },
+    {
+      "id": "reuters_business_news",
+      "name": "Reuters",
+      "url": "http://feeds.reuters.com/reuters/businessNews",
+      "enabled": true,
+      "weight": 1.15
+    },
+    {
+      "id": "bloomberg_markets",
+      "name": "Bloomberg Markets",
+      "url": "https://feeds.bloomberg.com/markets/news.rss",
+      "enabled": true,
+      "weight": 1.25
+    },
+    {
+      "id": "wsj_markets",
+      "name": "Wall Street Journal",
+      "url": "https://feeds.a.dj.com/rss/RSSMarketsMain.xml",
+      "enabled": true,
+      "weight": 1.2
+    },
+    {
+      "id": "ft_world",
+      "name": "Financial Times",
+      "url": "https://www.ft.com/world?format=rss",
+      "enabled": true,
+      "weight": 1.2
     },
     {
       "id": "cnbc",

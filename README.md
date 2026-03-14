@@ -52,9 +52,10 @@ make summarize   # generates summary for today (UTC)
 |---------|-----|
 | **Web (calendar)** | http://localhost:3000 |
 | **API** | http://localhost:3090 |
-| **API health** | http://localhost:3090/api/health |
+| **API via web (same origin)** | http://localhost:3000/api/v1 |
+| **Admin (sources)** | http://localhost:3000/api/v1/admin |
 
-The web app uses the API on port **3090** by default. If you use a different port for the API, start the web with:
+The web app uses the API on port **3090** by default. To use the API through the same origin (port 3000), use the **`/api/v1`** path (API versioning): Next.js rewrites those requests to the Go API. Admin: **http://localhost:3000/api/v1/admin**. If you use a different port for the API, start the web with:
 
 ```bash
 NEXT_PUBLIC_API_URL=http://localhost:PORT npm run dev
@@ -76,6 +77,27 @@ docker compose exec api /app/migrate
 
 - **Web:** http://localhost:3000  
 - **API:** http://localhost:3090  
+
+---
+
+## Production: API behind the same domain (port 3000)
+
+To have everything go through the same domain/port in production (e.g. only expose 3000):
+
+1. **Rewrite:** Next.js is already configured so that any request under **`/api/v1`** is proxied to the Go API (API versioning, good practice). No code changes needed.
+
+2. **Environment variables on the Next.js server (build or runtime):**
+   - **`API_BACKEND_URL`** = Internal URL of the Go service (e.g. `http://api:3090` in Docker/Kubernetes, or `http://localhost:3090` if the API runs on the same machine).
+
+3. **Frontend variables (build time):**
+   - **`NEXT_PUBLIC_API_URL`** = `''` or the public URL with the prefix, e.g. `https://yourdomain.com/api/v1`. This way the calendar and the rest of the web app call the API from the same origin.
+
+4. **Production URLs:**
+   - Web: `https://yourdomain.com/`
+   - Admin (sources): `https://yourdomain.com/api/v1/admin`
+   - Health API: `https://yourdomain.com/api/v1/api/health`
+
+You only need to expose the Next.js entry point; the API can stay internal.
 
 ---
 

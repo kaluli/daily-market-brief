@@ -11,9 +11,29 @@ import (
 )
 
 const (
-	maxLineLen = 160
-	fillLine   = "[FILL] Not enough unique items today. Consider widening sources."
+	maxLineLen   = 160
+	fillLine     = "[FILL] Not enough unique items today. Consider widening sources."
+	minEuropeTop = 3 // guarantee at least 3 Europe/UE items in TOP 10
 )
+
+var europaKeywords = []string{
+	"spain", "españa", "español", "madrid", "barcelona", "eurozone", "euro area",
+	"eu ", "e.u.", "european union", "unión europea", "ue ", "ecb", "bce", "europe",
+	"europ", "brussels", "bruselas", "frankfurt", "lagarde", "euro ", "euros", "ftse",
+	"cac ", "dax", "ibex", "banco central europeo", "commission europe",
+	"merkel", "scholz", "macron", "sánchez", "sanch", "italy", "italia", "germany",
+	"alemania", "france", "francia", "uk ", "reino unido", "brexit",
+}
+
+func isEuropeItem(it *db.NewsItem) bool {
+	text := strings.ToLower(it.Title + " " + it.Source)
+	for _, k := range europaKeywords {
+		if strings.Contains(text, k) {
+			return true
+		}
+	}
+	return false
+}
 
 // ExtractiveSummarizer implements Summarizer without LLM: ranking + strict 100-line format.
 type ExtractiveSummarizer struct{}
@@ -29,21 +49,25 @@ func (s *ExtractiveSummarizer) Summarize(ctx context.Context, day time.Time, ite
 	sort.Slice(items, func(i, j int) bool {
 		return items[i].ImpactScore > items[j].ImpactScore
 	})
-	top10 := make([]RankedItem, 0, 10)
+	top10 := buildTop10WithEuropeQuota(items)
 	other := make([]RankedItem, 0, 90)
-	for i, it := range items {
-		r := RankedItem{
-			Rank:   i + 1,
+	seenURL := make(map[string]bool)
+	for _, r := range top10 {
+		seenURL[r.URL] = true
+	}
+	rank := len(top10) + 1
+	for _, it := range items {
+		if seenURL[it.URL] {
+			continue
+		}
+		other = append(other, RankedItem{
+			Rank:   rank,
 			Title:  it.Title,
 			Source: it.Source,
 			URL:    it.URL,
 			Score:  it.ImpactScore,
-		}
-		if i < 10 {
-			top10 = append(top10, r)
-		} else {
-			other = append(other, r)
-		}
+		})
+		rank++
 	}
 	lines := build100Lines(day, time.Now().UTC(), len(items), top10, other)
 	return &Result{
@@ -52,6 +76,63 @@ func (s *ExtractiveSummarizer) Summarize(ctx context.Context, day time.Time, ite
 		Lines:         lines,
 		ItemsAnalyzed: len(items),
 	}, nil
+}
+
+// buildTop10WithEuropeQuota returns 10 items sorted by impact, with at least 3 from Europe/UE.
+func buildTop10WithEuropeQuota(items []db.NewsItem) []RankedItem {
+	var europe, rest []db.NewsItem
+	for i := range items {
+		if isEuropeItem(&items[i]) {
+			europe = append(europe, items[i])
+		} else {
+			rest = append(rest, items[i])
+		}
+	}
+	// Take up to 3 from Europe (by impact, already sorted)
+	takeEurope := minEuropeTop
+	if takeEurope > len(europe) {
+		takeEurope = len(europe)
+	}
+	// Take the rest from all items, excluding the Europe ones we already took
+	needRest := 10 - takeEurope
+	usedURL := make(map[string]bool)
+	var top10 []RankedItem
+	for i := 0; i < takeEurope && i < len(europe); i++ {
+		it := &europe[i]
+		usedURL[it.URL] = true
+		top10 = append(top10, RankedItem{
+			Rank:   len(top10) + 1,
+			Title:  it.Title,
+			Source: it.Source,
+			URL:    it.URL,
+			Score:  it.ImpactScore,
+		})
+	}
+	for i := range items {
+		if needRest <= 0 {
+			break
+		}
+		if usedURL[items[i].URL] {
+			continue
+		}
+		usedURL[items[i].URL] = true
+		top10 = append(top10, RankedItem{
+			Rank:   len(top10) + 1,
+			Title:  items[i].Title,
+			Source: items[i].Source,
+			URL:    items[i].URL,
+			Score:  items[i].ImpactScore,
+		})
+		needRest--
+	}
+	// Re-sort by score so order reflects impact
+	sort.Slice(top10, func(i, j int) bool {
+		return top10[i].Score > top10[j].Score
+	})
+	for i := range top10 {
+		top10[i].Rank = i + 1
+	}
+	return top10
 }
 
 func (s *ExtractiveSummarizer) emptyResult(day time.Time) *Result {

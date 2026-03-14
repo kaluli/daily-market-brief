@@ -7,6 +7,7 @@ import (
 
 	"github.com/daily-market-brief/api/internal/analyst"
 	"github.com/daily-market-brief/api/internal/api"
+	"github.com/daily-market-brief/api/internal/config"
 	"github.com/daily-market-brief/api/internal/db"
 )
 
@@ -36,7 +37,11 @@ func main() {
 		a = analyst.NewStub()
 		log.Print("analyst: using stub (set OPENAI_API_KEY for LLM analysis)")
 	}
-	srv := api.New(d, summariesPath, a)
+	configDir := config.FindConfigDir()
+	srv := api.New(d, summariesPath, a, configDir)
+	if configDir != "" {
+		log.Print("admin: news sources API enabled (config=" + configDir + ")")
+	}
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = "3090"

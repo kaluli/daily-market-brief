@@ -3,6 +3,10 @@
     "NewsAPI": 0.9,
     "Finnhub": 1.2,
     "Reuters Business": 1.1,
+    "Reuters": 1.15,
+    "Bloomberg Markets": 1.25,
+    "Wall Street Journal": 1.2,
+    "Financial Times": 1.2,
     "CNBC": 1.15,
     "default": 1.0
   },

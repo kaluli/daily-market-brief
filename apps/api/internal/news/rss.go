@@ -27,6 +27,8 @@ func (p *RSSProvider) Fetch(ctx context.Context) ([]RawItem, error) {
 	if err != nil {
 		return nil, err
 	}
+	// Many feeds (Reuters, Bloomberg, WSJ, FT) block default Go client; use a browser-like User-Agent.
+	req.Header.Set("User-Agent", "Mozilla/5.0 (compatible; MarketBrief/1.0; +https://github.com/daily-market-brief)")
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return nil, err

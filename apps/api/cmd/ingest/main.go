@@ -5,14 +5,18 @@ import (
 	"log"
 	"os"
 
+	"github.com/daily-market-brief/api/internal/config"
 	"github.com/daily-market-brief/api/internal/db"
 	"github.com/daily-market-brief/api/internal/news"
 )
 
 func main() {
-	configDir := os.Getenv("CONFIG_DIR")
+	configDir := config.FindConfigDir()
 	if configDir == "" {
-		configDir = "./config"
+		configDir = os.Getenv("CONFIG_DIR")
+	}
+	if configDir == "" {
+		configDir = "config"
 	}
 	databaseURL := os.Getenv("DATABASE_URL")
 	if databaseURL == "" {
