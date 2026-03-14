@@ -43,6 +43,8 @@ Si la API devuelve 503 con `"api not configured (DATABASE_URL)"`, la función Go
 
 Si el build falla con **`go mod tidy`**: hay un `go.mod` y `go.sum` dentro de `api/` (replace a `../apps/api`) para que la build de Go use ese directorio. Además en `vercel.json` está `GOFLAGS=-mod=readonly`. Si sigue fallando, en Vercel → Settings → Environment Variables añade `GOFLAGS` = `-mod=readonly` (Production y Preview).
 
+**Si el build tarda mucho o falla (ej. "No Output Directory named public"):** podés volver a una configuración más simple: en Vercel → Settings → General pon **Root Directory** = **`apps/web`**. Así el build es solo Next.js (rápido) y la web despliega bien. La API en `/api/v1` no estará disponible en ese deploy (404); para tener web + API en el mismo proyecto hace falta Root vacío y que la build de Go en `api/` funcione. En `vercel.json` de la raíz está `outputDirectory: ".next"` para que Vercel encuentre el output cuando Root es la raíz del repo.
+
 ---
 
 ## Paso 1: Crear la base de datos en Neon
