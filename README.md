@@ -97,12 +97,14 @@ docker compose exec api /app/migrate
 
 ## Deploy en Vercel (solo web)
 
+**Usar cuenta de GitHub kaluli en Vercel (no karinap-eb).**
+
 Solo la **app web** (Next.js) en Vercel. La **API en Go** desplegada aparte; su URL se configura en `NEXT_PUBLIC_API_URL`.
 
 ### Pasos
 
 1. **Importar el repo en Vercel**  
-   [vercel.com/new](https://vercel.com/new) → Import Git Repository → elige `daily-market-brief`.
+   [vercel.com/new](https://vercel.com/new) → iniciar sesión con **kaluli** → Import Git Repository → elige `daily-market-brief`.
 
 2. **Configurar el proyecto**
    - **Root Directory:** haz clic en *Edit* y selecciona **`apps/web`** (monorepo).

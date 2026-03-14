@@ -78,7 +78,11 @@ export async function summaryByDayWithTranslations(day: string): Promise<{
       : process.env.NEXT_PUBLIC_APP_URL || "";
   const r = await fetch(`${base}/api/day/${encodeURIComponent(day)}`);
   if (r.status === 404) return null;
-  if (!r.ok) throw new Error("Failed to load day");
+  if (!r.ok) {
+    const body = await r.json().catch(() => ({}));
+    const msg = (body as { error?: string }).error || "Failed to load day";
+    throw new Error(msg);
+  }
   return r.json();
 }
 

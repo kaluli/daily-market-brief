@@ -1,7 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { translateToSpanish } from "@/lib/translate-server";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3090";
+/** Backend API base: server-side uses API_BACKEND_URL or NEXT_PUBLIC_API_URL. En Vercel sin ninguna, no usar localhost. */
+function getBackendUrl(): string | null {
+  const url = process.env.API_BACKEND_URL || process.env.NEXT_PUBLIC_API_URL;
+  if (url) return url.replace(/\/$/, "");
+  if (process.env.VERCEL_URL) return null;
+  return "http://localhost:3090";
+}
+
 const DELAY_MS = 300;
 
 type RankedItem = { rank: number; title: string; source: string; url: string; score: number };
@@ -22,8 +29,15 @@ export async function GET(
   if (!day?.trim()) {
     return NextResponse.json({ error: "Missing day" }, { status: 400 });
   }
+  const backendUrl = getBackendUrl();
+  if (!backendUrl) {
+    return NextResponse.json(
+      { error: "API no configurada. Configurá NEXT_PUBLIC_API_URL o API_BACKEND_URL en Vercel." },
+      { status: 503 }
+    );
+  }
   try {
-    const res = await fetch(`${API_URL}/api/summaries/day/${day}`, {
+    const res = await fetch(`${backendUrl}/api/summaries/day/${day}`, {
       cache: "no-store",
     });
     if (res.status === 404) {
