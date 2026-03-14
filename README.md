@@ -80,6 +80,32 @@ docker compose exec api /app/migrate
 
 ---
 
+## Deploy web app on Vercel
+
+Solo la **app web** (Next.js) se despliega en Vercel. La **API en Go** hay que desplegarla aparte (Railway, Render, Fly.io, etc.) y luego indicar su URL en Vercel.
+
+### Pasos
+
+1. **Importar el repo en Vercel**  
+   [vercel.com/new](https://vercel.com/new) → Import Git Repository → elige `daily-market-brief`.
+
+2. **Configurar el proyecto**
+   - **Root Directory:** haz clic en *Edit* y selecciona **`apps/web`** (monorepo).
+   - **Framework Preset:** Next.js (se detecta solo).
+   - **Build Command:** `npm run build`
+   - **Output Directory:** (vacío; Next.js por defecto)
+
+3. **Variables de entorno**
+   - **`NEXT_PUBLIC_API_URL`** = URL pública de tu API (ej. `https://tu-api.railway.app` o `https://daily-market-brief-api.fly.dev`).  
+   Si la API va detrás del mismo dominio que la web, puede ser `https://tudominio.com/api/v1` (y configurar rewrites en Vercel).
+
+4. **Deploy**  
+   Pulsa *Deploy*. Vercel construye `apps/web` y publica la app.
+
+La API (Go + Postgres) se despliega por separado; en la documentación de Railway/Render/Fly.io se explica cómo exponer el puerto y la URL que debes poner en `NEXT_PUBLIC_API_URL`.
+
+---
+
 ## Production: API behind the same domain (port 3000)
 
 To have everything go through the same domain/port in production (e.g. only expose 3000):
