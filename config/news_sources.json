@@ -1,0 +1,38 @@
+{
+  "sources": [
+    {
+      "id": "newsapi",
+      "name": "NewsAPI",
+      "enabled": true,
+      "weight": 1.0,
+      "config": {
+        "env_key": "NEWSAPI_KEY"
+      }
+    },
+    {
+      "id": "finnhub",
+      "name": "Finnhub",
+      "enabled": true,
+      "weight": 1.2,
+      "config": {
+        "env_key": "FINNHUB_API_KEY"
+      }
+    }
+  ],
+  "rss_sources": [
+    {
+      "id": "reuters_markets",
+      "name": "Reuters Business",
+      "url": "https://www.reutersagency.com/feed/?taxonomy=best-topics&post_type=best",
+      "enabled": false,
+      "weight": 1.1
+    },
+    {
+      "id": "cnbc",
+      "name": "CNBC",
+      "url": "https://www.cnbc.com/id/100003114/device/rss/rss.html",
+      "enabled": true,
+      "weight": 1.15
+    }
+  ]
+}

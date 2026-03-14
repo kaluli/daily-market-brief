@@ -1,0 +1,49 @@
+version: "3.9"
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: marketbrief
+      POSTGRES_PASSWORD: marketbrief_secret
+      POSTGRES_DB: marketbrief
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U marketbrief -d marketbrief"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    ports:
+      - "3090:3090"
+    environment:
+      DATABASE_URL: postgres://marketbrief:marketbrief_secret@postgres:5432/marketbrief?sslmode=disable
+      SUMMARIES_PATH: /app/summaries
+      PORT: "3090"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./summaries:/app/summaries
+      - ./config:/app/config:ro
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:3090
+    depends_on:
+      - api
+
+volumes:
+  postgres_data:

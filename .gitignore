@@ -1,0 +1,31 @@
+# Env and secrets
+.env
+.env.local
+*.pem
+
+# Dependencies
+node_modules/
+apps/web/.next/
+apps/web/out/
+
+# Build and binaries
+*.exe
+apps/api/server
+apps/api/migrate
+apps/api/ingest
+apps/api/summarize
+
+# IDE and OS
+.idea/
+.vscode/
+.DS_Store
+*.swp
+*.swo
+
+# Logs and temp
+*.log
+tmp/
+temp/
+
+# Optional: summaries (uncomment to avoid committing generated .txt)
+# summaries/*.txt

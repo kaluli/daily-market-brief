@@ -1,0 +1,22 @@
+{
+  "source_weights": {
+    "NewsAPI": 0.9,
+    "Finnhub": 1.2,
+    "Reuters Business": 1.1,
+    "CNBC": 1.15,
+    "default": 1.0
+  },
+  "keywords": {
+    "high": ["Fed", "CPI", "inflation", "earnings", "guidance", "rates", "recession", "AI", "oil", "sanctions", "interest rate", "FOMC", "GDP", "jobs report", "market crash", "rally", "earnings beat", "earnings miss"],
+    "medium": ["stock", "trading", "dow", "nasdaq", "S&P", "sector", "analyst", "upgrade", "downgrade", "IPO", "merger", "acquisition"],
+    "low": ["update", "brief", "roundup"]
+  },
+  "keyword_scores": {
+    "high": 1.5,
+    "medium": 1.2,
+    "low": 0.8
+  },
+  "recency_hours_decay": 24,
+  "duplicate_boost": 1.3,
+  "ticker_boost": 1.1
+}
