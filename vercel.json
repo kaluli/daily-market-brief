@@ -1,10 +1,5 @@
 {
   "buildCommand": "npm run build",
   "installCommand": "npm run install",
-  "outputDirectory": ".next",
-  "build": {
-    "env": {
-      "GOFLAGS": "-mod=readonly"
-    }
-  }
+  "outputDirectory": ".next"
 }

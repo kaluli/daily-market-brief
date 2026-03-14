@@ -95,42 +95,9 @@ docker compose exec api /app/migrate
 
 ---
 
-## Deploy todo en Vercel (web + API, gratis sin tarjeta)
+## Deploy en Vercel (solo web)
 
-Puedes desplegar **web y API** en un solo proyecto de Vercel. La API en Go corre como función serverless; la base de datos puede ser **Neon** (Postgres gratis, sin tarjeta).
-
-**Guía paso a paso:** [docs/DEPLOY_VERCEL.md](docs/DEPLOY_VERCEL.md)
-
-### 1. Base de datos en Neon
-
-1. Entra en [neon.tech](https://neon.tech) y crea una cuenta (GitHub).
-2. Crea un proyecto y anota la **connection string** (Postgres).
-3. Ejecuta las migraciones una vez (desde tu máquina con esa URL):
-   ```bash
-   cd apps/api && DATABASE_URL="postgresql://..." go run cmd/migrate/main.go
-   ```
-
-### 2. Desplegar en Vercel
-
-1. [vercel.com/new](https://vercel.com/new) → Import el repo **daily-market-brief**.
-2. **Root Directory:** `apps/web`.
-3. **Variables de entorno:**
-   - **`DATABASE_URL`** = connection string de Neon (con `?sslmode=require` si hace falta).
-   - **`NEXT_PUBLIC_API_URL`** = `https://tu-dominio.vercel.app/api/v1` (la URL de tu deploy en Vercel + `/api/v1`).
-   - **`NEWS_SOURCES_JSON`** (opcional) = contenido completo del JSON de `config/news_sources.json` (para el panel admin en serverless; si no, admin dará "no config").
-4. Deploy. Vercel construye Next.js y la función Go en `api/`; las peticiones a `/api/v1/*` van a la API.
-
-### 3. Resumen
-
-- **Web:** calendario, día, semana, mes, traducción, etc.
-- **API:** resúmenes, health, admin (solo lectura si usas `NEWS_SOURCES_JSON`).
-- **Descarga .txt** por día no está disponible en serverless (no hay disco); el resto funciona con los datos en Neon.
-
----
-
-## Deploy solo web en Vercel (API aparte)
-
-Solo la **app web** (Next.js) en Vercel. La **API en Go** desplegada aparte (Railway, Render, etc.) y su URL en `NEXT_PUBLIC_API_URL`.
+Solo la **app web** (Next.js) en Vercel. La **API en Go** desplegada aparte; su URL se configura en `NEXT_PUBLIC_API_URL`.
 
 ### Pasos
 
@@ -144,51 +111,12 @@ Solo la **app web** (Next.js) en Vercel. La **API en Go** desplegada aparte (Rai
    - **Output Directory:** (vacío; Next.js por defecto)
 
 3. **Variables de entorno**
-   - **`NEXT_PUBLIC_API_URL`** = URL pública de tu API (ej. `https://tu-api.railway.app` o `https://daily-market-brief-api.fly.dev`).  
-   Si la API va detrás del mismo dominio que la web, puede ser `https://tudominio.com/api/v1` (y configurar rewrites en Vercel).
+   - **`NEXT_PUBLIC_API_URL`** = URL pública de tu API + `/api/v1`.
 
 4. **Deploy**  
    Pulsa *Deploy*. Vercel construye `apps/web` y publica la app.
 
-La API (Go + Postgres) se despliega por separado. Opción **gratuita**: Render (ver abajo).
-
----
-
-## Desplegar la API en Render (gratis)
-
-[Render](https://render.com) tiene plan gratuito para Web Service y Postgres (con límites). No hace falta tarjeta para empezar.
-
-### Pasos
-
-1. **Entra en Render**  
-   [dashboard.render.com](https://dashboard.render.com) → Sign up / Login (con GitHub).
-
-2. **Nuevo Blueprint**  
-   - **New** → **Blueprint**.  
-   - Conecta el repo **daily-market-brief** (GitHub).  
-   - Render detectará el `render.yaml` en la raíz del repo.
-
-3. **Aplicar el Blueprint**  
-   - Se crearán: 1 base de datos PostgreSQL (free) y 1 Web Service (API en Go).  
-   - Revisa que el servicio use el Dockerfile de `apps/api` y que `DATABASE_URL` venga de la base de datos.  
-   - Pulsa **Apply**.
-
-4. **Migraciones**  
-   La primera vez hay que crear las tablas. En el servicio de la API, **Shell** (o **Settings** → comando de inicio temporal), ejecuta:
-   ```bash
-   /app/migrate
-   ```
-   (El Dockerfile ya incluye el binario `migrate`.)
-
-5. **URL de la API**  
-   En el dashboard, el Web Service tendrá una URL tipo `https://daily-market-brief-api.onrender.com`. Cópiala.
-
-6. **Vercel (web)**  
-   En el proyecto de Vercel de la app web, añade la variable de entorno:
-   - **`NEXT_PUBLIC_API_URL`** = `https://daily-market-brief-api.onrender.com`  
-   y vuelve a desplegar.
-
-**Nota:** En plan free, el Web Service se **duerme** tras ~15 min sin peticiones; la primera petición tras eso puede tardar unos segundos (cold start). Los summaries (archivos `.txt`) no persisten entre despliegues; para tener datos puedes ejecutar `ingest` y `summarize` en local y subir los archivos, o añadir un cron job en Render que los genere.
+La API (Go + Postgres) se despliega por separado. Ver `docs/DEPLOY_VERCEL.md` para la web en Vercel.
 
 ---
 

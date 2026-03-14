@@ -1,6 +1,6 @@
-# Desplegar la web en Vercel
+# Desplegar en Vercel
 
-Solo la **web** (Next.js). La API la desplegás aparte cuando quieras.
+En este proyecto en Vercel solo se despliega la **web** (Next.js). La API la desplegás aparte y la conectás con `NEXT_PUBLIC_API_URL`.
 
 ---
 
@@ -17,19 +17,19 @@ Listo. Abrís la URL que te da Vercel: verás el calendario y las vistas (día/s
 
 ---
 
-## 2. Conectar la API (después)
+## 2. Conectar la API (desplegada aparte)
 
-Cuando tengas la API desplegada en algún lado:
+Si en cambio desplegás la API en otro servicio:
 
-1. En Vercel → tu proyecto → **Settings** → **Environment Variables**.
-2. Agregá **NEXT_PUBLIC_API_URL** = URL de tu API + `/api/v1` (ej. `https://tu-api.ejemplo.com/api/v1`).
-3. **Redeploy** (Deployments → ⋮ en el último → Redeploy).
+1. En Vercel → **Settings** → **Environment Variables**.
+2. **NEXT_PUBLIC_API_URL** = URL de tu API + `/api/v1`.
+3. **Redeploy.**
 
 La web usará esa API y mostrará los datos en el calendario.
 
 ---
 
-## 3. Neon (solo si tu API usa Neon)
+## 3. Neon (para la API)
 
 Si la API usará Neon como base de datos:
 
@@ -52,5 +52,5 @@ Los resúmenes se generan con la API (ingest + summarize en local o cron), no en
 | Qué | Dónde |
 |-----|--------|
 | **Web** | Vercel, Root = `apps/web` |
-| **Sin API** | Deploy sin variables → calendario vacío, sin errores |
-| **Con API** | En Vercel: `NEXT_PUBLIC_API_URL` = URL de tu API + `/api/v1` |
+| **Sin API** | Sin variables → calendario vacío |
+| **Con API** | NEXT_PUBLIC_API_URL = URL de tu API + `/api/v1` |
