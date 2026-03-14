@@ -27,20 +27,31 @@ async function proxyToGo(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
   const search = request.nextUrl.search;
 
-  // En Vercel sin API_BACKEND_URL no hay backend: devolver 503 (evita bucle y fetch a localhost).
   const backend =
     process.env.API_BACKEND_URL ||
     (process.env.VERCEL_URL ? null : "http://localhost:3090");
 
   if (!backend) {
     return NextResponse.json(
-      { error: "API no configurada. Configurá API_BACKEND_URL o NEXT_PUBLIC_API_URL en Vercel." },
+      { error: "API no configurada. Configurá API_BACKEND_URL (URL de tu API, no la de Vercel)." },
       { status: 503 }
     );
   }
 
+  // Nunca hacer fetch al mismo despliegue (evita infinite loop).
+  try {
+    const backendHost = new URL(backend).hostname;
+    if (process.env.VERCEL_URL && backendHost === process.env.VERCEL_URL) {
+      return NextResponse.json(
+        { error: "API_BACKEND_URL no puede ser la URL de Vercel. Usá la URL de tu API (ej. Railway, Fly)." },
+        { status: 503 }
+      );
+    }
+  } catch (_) {}
+
   const localPath = pathname.replace(/^\/api\/v1/, "") || "/";
-  const url = new URL(localPath, backend.replace(/\/$/, ""));
+  const backendBase = backend.replace(/\/api\/v1\/?$/, "").replace(/\/$/, "") || backend;
+  const url = new URL(localPath, backendBase);
   url.search = search;
 
   const headers = new Headers(request.headers);

@@ -5,9 +5,15 @@ export function hasApi(): boolean {
   return false;
 }
 
-/** Resuelve en cada llamada para que en el cliente (localhost) use el proxy y no 3090 directo. */
+/**
+ * Base URL de la API. En localhost usa el proxy /api/v1.
+ * En producción debe ser el origen de la API (sin /api/v1); si viene con /api/v1 se quita para no duplicar /api en las rutas.
+ */
 export function getApiUrl(): string {
-  if (process.env.NEXT_PUBLIC_API_URL) return process.env.NEXT_PUBLIC_API_URL;
+  if (process.env.NEXT_PUBLIC_API_URL) {
+    const base = process.env.NEXT_PUBLIC_API_URL.replace(/\/api\/v1\/?$/, "").replace(/\/$/, "");
+    return base || process.env.NEXT_PUBLIC_API_URL;
+  }
   if (typeof window !== "undefined" && window.location?.hostname === "localhost") {
     return `${window.location.origin}/api/v1`;
   }
@@ -18,7 +24,7 @@ export function getApiUrl(): string {
 export const apiBaseUrl =
   typeof window !== "undefined" && window.location?.hostname === "localhost"
     ? `${window.location.origin}/api/v1`
-    : (process.env.NEXT_PUBLIC_API_URL || "");
+    : (process.env.NEXT_PUBLIC_API_URL?.replace(/\/api\/v1\/?$/, "").replace(/\/$/, "") || process.env.NEXT_PUBLIC_API_URL || "");
 
 export type SummaryMeta = {
   day: string;

@@ -1,10 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { translateToSpanish } from "@/lib/translate-server";
 
-/** Backend API base: server-side uses API_BACKEND_URL or NEXT_PUBLIC_API_URL. En Vercel sin ninguna, no usar localhost. */
+/** Backend API base (origen sin /api/v1). Server-side usa API_BACKEND_URL o NEXT_PUBLIC_API_URL. */
 function getBackendUrl(): string | null {
-  const url = process.env.API_BACKEND_URL || process.env.NEXT_PUBLIC_API_URL;
-  if (url) return url.replace(/\/$/, "");
+  const raw = process.env.API_BACKEND_URL || process.env.NEXT_PUBLIC_API_URL;
+  if (raw) {
+    const base = raw.replace(/\/api\/v1\/?$/, "").replace(/\/$/, "");
+    return base || raw;
+  }
   if (process.env.VERCEL_URL) return null;
   return "http://localhost:3090";
 }
@@ -32,10 +35,20 @@ export async function GET(
   const backendUrl = getBackendUrl();
   if (!backendUrl) {
     return NextResponse.json(
-      { error: "API no configurada. Configurá NEXT_PUBLIC_API_URL o API_BACKEND_URL en Vercel." },
+      { error: "API no configurada. En el proyecto web (Vercel) configurá API_BACKEND_URL = URL del proyecto API (ej. https://daily-market-brief-api.vercel.app)." },
       { status: 503 }
     );
   }
+  // No llamar a la propia web (infinite loop o 404)
+  try {
+    const backendHost = new URL(backendUrl).hostname;
+    if (process.env.VERCEL_URL && backendHost === process.env.VERCEL_URL) {
+      return NextResponse.json(
+        { error: "API_BACKEND_URL no puede ser la URL de la web. Usá la URL del proyecto API (ej. https://daily-market-brief-api.vercel.app)." },
+        { status: 503 }
+      );
+    }
+  } catch (_) {}
   try {
     const res = await fetch(`${backendUrl}/api/summaries/day/${day}`, {
       cache: "no-store",
