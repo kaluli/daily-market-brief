@@ -8,22 +8,7 @@ Daily market brief: financial news ingestion, impact-based ranking, and summarie
 
 You need **PostgreSQL** running and **Go** and **Node** installed.
 
-### 1. Database (one-time setup)
-
-Create user and database in Postgres:
-
-```sql
-CREATE USER marketbrief WITH PASSWORD 'marketbrief_secret';
-CREATE DATABASE marketbrief OWNER marketbrief;
-```
-
-Run migrations from the project root:
-
-```bash
-make migrate
-```
-
-### 2. Start the API
+### 1. Start the API
 
 In a terminal, from the **project root**:
 
@@ -36,7 +21,7 @@ Keep the terminal open. When you see `listening on http://localhost:3090`, the A
 - **API:** http://localhost:3090  
 - **Health:** http://localhost:3090/api/health  
 
-### 3. Start the web app
+### 2. Start the web app
 
 In **another terminal**, from the project root:
 
@@ -48,7 +33,7 @@ npm run dev
 
 Open in your browser: **http://localhost:3000** (calendar and day/week/month views).
 
-### 4. (Optional) Populate the calendar with data
+### 3. (Optional) Populate the calendar with data
 
 To see summaries in the web app, ingest news and generate at least one day:
 
@@ -140,6 +125,6 @@ The **investment analyst** module applies a 10-step framework to each news item:
 
 ## Troubleshooting
 
-- **"database: ..."** when starting the API → Postgres is not running or user/password are incorrect.
+- **"database: ..."** when starting the API → Check that Postgres is running and your database is configured (see `.env.example`).
 - **"address already in use"** → Port 3090 is taken. Use `PORT=3091 ./scripts/run-api.sh` and for the web: `NEXT_PUBLIC_API_URL=http://localhost:3091 npm run dev`.
 - **Web shows no data** → Run `make ingest` then `make summarize` (or `make summarize DAY=YYYY-MM-DD`).
