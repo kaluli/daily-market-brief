@@ -41,7 +41,7 @@ Rutas de la API (Fiber, en `apps/api/internal/api/server.go`): `/`, `/api/health
 
 Si la API devuelve 503 con `"api not configured (DATABASE_URL)"`, la función Go no tiene `DATABASE_URL` en el entorno (revisa variables en Vercel y redeploy).
 
-Si el build falla con **`go mod tidy`**: en `vercel.json` está `GOFLAGS=-mod=readonly` para que use el `go.sum` del repo sin ejecutar tidy. Si aun así falla, en Vercel → Settings → Environment Variables añade `GOFLAGS` = `-mod=readonly` (Production y Preview).
+Si el build falla con **`go mod tidy`**: hay un `go.mod` y `go.sum` dentro de `api/` (replace a `../apps/api`) para que la build de Go use ese directorio. Además en `vercel.json` está `GOFLAGS=-mod=readonly`. Si sigue fallando, en Vercel → Settings → Environment Variables añade `GOFLAGS` = `-mod=readonly` (Production y Preview).
 
 ---
 
