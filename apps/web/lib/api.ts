@@ -1,7 +1,17 @@
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3090";
+/** Resuelve en cada llamada para que en el cliente (localhost) use el proxy y no 3090 directo. */
+export function getApiUrl(): string {
+  if (process.env.NEXT_PUBLIC_API_URL) return process.env.NEXT_PUBLIC_API_URL;
+  if (typeof window !== "undefined" && window.location?.hostname === "localhost") {
+    return `${window.location.origin}/api/v1`;
+  }
+  return "http://localhost:3090";
+}
 
-/** Base URL of the API (for links like admin). Use this so dev goes to 3090 and prod uses NEXT_PUBLIC_API_URL. */
-export const apiBaseUrl = API_URL;
+/** Base URL de la API (enlaces, admin). En cliente con origin localhost usa proxy. */
+export const apiBaseUrl =
+  typeof window !== "undefined" && window.location?.hostname === "localhost"
+    ? `${window.location.origin}/api/v1`
+    : (process.env.NEXT_PUBLIC_API_URL || "http://localhost:3090");
 
 export type SummaryMeta = {
   day: string;
@@ -26,19 +36,19 @@ export type DaySummary = {
 };
 
 export async function health(): Promise<{ status: string }> {
-  const r = await fetch(`${API_URL}/api/health`);
+  const r = await fetch(`${getApiUrl()}/api/health`);
   if (!r.ok) throw new Error("API health check failed");
   return r.json();
 }
 
 export async function summariesRange(from: string, to: string): Promise<SummaryMeta[]> {
-  const r = await fetch(`${API_URL}/api/summaries?from=${from}&to=${to}`);
+  const r = await fetch(`${getApiUrl()}/api/summaries?from=${from}&to=${to}`);
   if (!r.ok) throw new Error("Failed to fetch summaries");
   return r.json();
 }
 
 export async function summaryByDay(day: string): Promise<DaySummary | null> {
-  const r = await fetch(`${API_URL}/api/summaries/day/${day}`);
+  const r = await fetch(`${getApiUrl()}/api/summaries/day/${day}`);
   if (r.status === 404) return null;
   if (!r.ok) throw new Error("Failed to fetch summary");
   return r.json();
@@ -62,19 +72,19 @@ export async function summaryByDayWithTranslations(day: string): Promise<{
 }
 
 export async function summaryByWeek(week: string): Promise<{ week: string; summaries: { day: string }[] }> {
-  const r = await fetch(`${API_URL}/api/summaries/week/${week}`);
+  const r = await fetch(`${getApiUrl()}/api/summaries/week/${week}`);
   if (!r.ok) throw new Error("Failed to fetch week");
   return r.json();
 }
 
 export async function summaryByMonth(month: string): Promise<{ month: string; summaries: { day: string }[] }> {
-  const r = await fetch(`${API_URL}/api/summaries/month/${month}`);
+  const r = await fetch(`${getApiUrl()}/api/summaries/month/${month}`);
   if (!r.ok) throw new Error("Failed to fetch month");
   return r.json();
 }
 
 export function downloadUrl(day: string): string {
-  return `${API_URL}/api/summaries/day/${day}/download`;
+  return `${getApiUrl()}/api/summaries/day/${day}/download`;
 }
 
 export type AnalysisResult = {
@@ -96,7 +106,7 @@ export async function analysisByDay(day: string): Promise<{
   items_analyzed: number;
   analyses: AnalysisResult[];
 }> {
-  const r = await fetch(`${API_URL}/api/analysis/day/${day}`);
+  const r = await fetch(`${getApiUrl()}/api/analysis/day/${day}`);
   if (!r.ok) throw new Error("Failed to fetch analysis");
   return r.json();
 }
@@ -125,7 +135,7 @@ export type AdminSourcesResponse = {
 };
 
 export async function getAdminSources(): Promise<AdminSourcesResponse> {
-  const r = await fetch(`${API_URL}/api/admin/sources`);
+  const r = await fetch(`${getApiUrl()}/api/admin/sources`);
   if (!r.ok) {
     const err = await r.json().catch(() => ({}));
     const msg = (err as { error?: string }).error || "Error al cargar fuentes";
@@ -138,7 +148,7 @@ export async function setSourceEnabled(
   id: string,
   enabled: boolean
 ): Promise<{ id: string; enabled: boolean }> {
-  const r = await fetch(`${API_URL}/api/admin/sources/${encodeURIComponent(id)}/enabled`, {
+  const r = await fetch(`${getApiUrl()}/api/admin/sources/${encodeURIComponent(id)}/enabled`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ enabled }),

@@ -31,7 +31,7 @@ async function proxyToGo(request: NextRequest) {
   const search = request.nextUrl.search;
 
   // En Vercel: llamar a la función Go en /api con el path en header (el rewrite pierde el path).
-  // En local: llamar al backend (puerto 3090) con el path completo.
+  // En local: llamar al backend (puerto 3090); el servidor Go no tiene prefijo /api/v1, así que lo quitamos.
   const isVercel = !!process.env.VERCEL_URL;
   const backend =
     process.env.API_BACKEND_URL || "http://localhost:3090";
@@ -39,7 +39,8 @@ async function proxyToGo(request: NextRequest) {
     ? `https://${process.env.VERCEL_URL}`
     : backend;
 
-  const url = new URL(isVercel ? API_ROUTE : pathname, origin);
+  const localPath = pathname.replace(/^\/api\/v1/, "") || "/";
+  const url = new URL(isVercel ? API_ROUTE : localPath, origin);
   url.search = search;
 
   const headers = new Headers(request.headers);

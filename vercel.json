@@ -1,4 +1,9 @@
 {
   "buildCommand": "npm run build",
-  "installCommand": "npm run install"
+  "installCommand": "npm run install",
+  "build": {
+    "env": {
+      "GOFLAGS": "-mod=readonly"
+    }
+  }
 }

@@ -8,30 +8,45 @@ Daily market brief: financial news ingestion, impact-based ranking, and summarie
 
 You need **PostgreSQL** running and **Go** and **Node** installed.
 
+### 0. Base de datos (obligatorio)
+
+La API usa Postgres. Por defecto: `postgres://marketbrief:marketbrief_secret@localhost:5432/marketbrief`.
+
+- **Con Docker:** desde la raíz del repo:
+  ```bash
+  docker compose up -d postgres
+  cd apps/api && DATABASE_URL="postgres://marketbrief:marketbrief_secret@localhost:5432/marketbrief?sslmode=disable" go run cmd/migrate/main.go
+  ```
+- **Sin Docker:** ten Postgres en 5432 con usuario `marketbrief`, DB `marketbrief`, y ejecuta las migraciones:
+  ```bash
+  cd apps/api && DATABASE_URL="postgres://marketbrief:marketbrief_secret@localhost:5432/marketbrief?sslmode=disable" go run cmd/migrate/main.go
+  ```
+  Debe salir `migrations ok`. Si la API arranca y falla con `database: ...`, revisa que Postgres esté arriba y las migraciones hechas.
+
 ### 1. Start the API
 
-In a terminal, from the **project root**:
+En una terminal, desde la **raíz del proyecto**:
 
 ```bash
 ./scripts/run-api.sh
 ```
 
-Keep the terminal open. When you see `listening on http://localhost:3090`, the API is ready.
+Déjala abierta. Cuando veas `listening on http://localhost:3090`, la API está lista.
 
 - **API:** http://localhost:3090  
 - **Health:** http://localhost:3090/api/health  
 
 ### 2. Start the web app
 
-In **another terminal**, from the project root:
+En **otra terminal**, desde la raíz:
 
 ```bash
 cd apps/web
-npm install   # first time only
+npm install   # solo la primera vez
 npm run dev
 ```
 
-Open in your browser: **http://localhost:3000** (calendar and day/week/month views).
+Abre en el navegador **http://localhost:3000** (calendario y vistas por día/semana/mes). La web usa por defecto el proxy `/api/v1` cuando corre en localhost:3000, así que no hace falta definir `NEXT_PUBLIC_API_URL`.
 
 ### 3. (Optional) Populate the calendar with data
 
@@ -55,7 +70,7 @@ make summarize   # generates summary for today (UTC)
 | **API via web (same origin)** | http://localhost:3000/api/v1 |
 | **Admin (sources)** | http://localhost:3000/api/v1/admin |
 
-The web app uses the API on port **3090** by default. To use the API through the same origin (port 3000), use the **`/api/v1`** path (API versioning): Next.js rewrites those requests to the Go API. Admin: **http://localhost:3000/api/v1/admin**. If you use a different port for the API, start the web with:
+En local, si abrís la web en **http://localhost:3000**, el frontend usa el proxy **/api/v1** (mismo origen). La API debe estar en 3090; las peticiones desde el navegador pasan por Next.js y este reenvía al backend. Admin: **http://localhost:3000/api/v1/admin**. Si la API va en otro puerto, arrancá la web con:
 
 ```bash
 NEXT_PUBLIC_API_URL=http://localhost:PORT npm run dev
