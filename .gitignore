@@ -28,7 +28,7 @@ apps/api/summarize
 tmp/
 temp/
 
-# Optional: summaries (uncomment to avoid committing generated .txt)
-# summaries/*.txt
+# Generated summaries (ingest + summarize)
+summaries/*.txt
 .vercel
 .env*.local
