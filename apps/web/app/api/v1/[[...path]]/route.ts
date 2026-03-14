@@ -1,10 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
-const API_ROUTE = "/api";
-
 /**
- * Proxy /api/v1/* to the Go serverless function at /api.
- * The Go handler uses X-Forwarded-Path to route correctly (Vercel rewrites can lose the path).
+ * Proxy /api/v1/* to the API Go (API_BACKEND_URL). En Vercel sin API_BACKEND_URL devuelve 503.
  */
 export async function GET(request: NextRequest) {
   return proxyToGo(request);
@@ -30,24 +27,24 @@ async function proxyToGo(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
   const search = request.nextUrl.search;
 
-  // En Vercel: llamar a la función Go en /api con el path en header (el rewrite pierde el path).
-  // En local: llamar al backend (puerto 3090); el servidor Go no tiene prefijo /api/v1, así que lo quitamos.
-  const isVercel = !!process.env.VERCEL_URL;
+  // En Vercel sin API_BACKEND_URL no hay backend: devolver 503 (evita bucle y fetch a localhost).
   const backend =
-    process.env.API_BACKEND_URL || "http://localhost:3090";
-  const origin = isVercel
-    ? `https://${process.env.VERCEL_URL}`
-    : backend;
+    process.env.API_BACKEND_URL ||
+    (process.env.VERCEL_URL ? null : "http://localhost:3090");
+
+  if (!backend) {
+    return NextResponse.json(
+      { error: "API no configurada. Configurá API_BACKEND_URL o NEXT_PUBLIC_API_URL en Vercel." },
+      { status: 503 }
+    );
+  }
 
   const localPath = pathname.replace(/^\/api\/v1/, "") || "/";
-  const url = new URL(isVercel ? API_ROUTE : localPath, origin);
+  const url = new URL(localPath, backend.replace(/\/$/, ""));
   url.search = search;
 
   const headers = new Headers(request.headers);
   headers.delete("host");
-  if (isVercel) {
-    headers.set("X-Forwarded-Path", pathname);
-  }
 
   let body: string | undefined;
   try {
