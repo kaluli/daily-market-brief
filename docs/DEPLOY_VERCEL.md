@@ -77,6 +77,8 @@ La web usará esa API y mostrará los datos en el calendario.
 
 La API en Vercel **sirve** los datos que ya están en la base de datos; **no genera** resúmenes sola. Para que aparezca la "información del día" (resumen con top 10, etc.) tenés que **generar** esos resúmenes y guardarlos en la misma DB que usa la API.
 
+**Por qué en local tenés noticias y en producción no:** En local la API usa una base (ej. Postgres en tu máquina) donde ya corriste `make ingest` y `make summarize`. En producción la API usa **otra** base (Neon); si nunca corriste ingest + summarize con la `DATABASE_URL` de Neon, esa base no tiene resúmenes. Hay que correr ingest y summarize apuntando a Neon (ver abajo).
+
 **Una vez por día (o cuando quieras actualizar), en tu máquina**, con la **misma DATABASE_URL** que tiene el proyecto de la API en Vercel (ej. la connection string de Neon):
 
 ```bash
@@ -99,6 +101,22 @@ Después de eso, al recargar la web (con `NEXT_PUBLIC_API_URL` apuntando a tu AP
 
 ---
 
+## 6. Automatizar ingest + summarize (GitHub Actions)
+
+Para no tener que ejecutar `make ingest` y `make summarize` a mano cada día, el repo incluye un workflow que corre **una vez al día** (y también se puede lanzar a mano).
+
+1. **Secret en GitHub:** En el repo → **Settings** → **Secrets and variables** → **Actions** → **New repository secret**:
+   - **Nombre:** `DATABASE_URL`
+   - **Valor:** la misma connection string de Neon que usa la API en Vercel (ej. `postgresql://usuario:password@host.neon.tech/neondb?sslmode=require`).
+
+2. **Horario:** Por defecto el workflow corre a las **13:00 UTC** (9:00 en Argentina). Podés cambiarlo en `.github/workflows/daily-ingest.yml` (cron `0 13 * * *`).
+
+3. **Ejecución manual:** En el repo → pestaña **Actions** → **Daily ingest and summarize** → **Run workflow**.
+
+Las fuentes de noticias se leen del `config/` del repo (igual que en local); no hace falta configurar nada más. Después de cada ejecución, la web en producción mostrará el resumen del día cuando recargues.
+
+---
+
 ## Resumen
 
 | Qué | Dónde |
@@ -107,3 +125,4 @@ Después de eso, al recargar la web (con `NEXT_PUBLIC_API_URL` apuntando a tu AP
 | **API en Vercel** | Segundo proyecto, Root = `apps/api`, DATABASE_URL + NEWS_SOURCES_JSON |
 | **Sin API** | Sin variables → calendario vacío |
 | **Con API** | NEXT_PUBLIC_API_URL = URL de la API (Vercel o Railway, etc.) |
+| **Automatizar resúmenes** | GitHub Actions: secret DATABASE_URL, workflow daily-ingest (sección 6) |
