@@ -2,7 +2,7 @@
   "name": "daily-market-brief",
   "private": true,
   "scripts": {
-    "build": "cd apps/web && npm run build",
+    "build": "cd apps/web && npm run build && cp -r .next ../..",
     "install": "cd apps/web && npm install"
   }
 }
