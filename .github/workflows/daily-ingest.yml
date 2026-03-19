@@ -4,8 +4,8 @@ name: Daily ingest and summarize
 
 on:
   schedule:
-    # 13:00 UTC (9:00 Argentina) — permite tener noticias del día
-    - cron: "0 13 * * *"
+    # 12:00 UTC = 13:00 Madrid (CET invierno) / 14:00 Madrid (CEST verano)
+    - cron: "0 12 * * *"
   workflow_dispatch: # Permite ejecutar manualmente desde la pestaña Actions
 
 jobs:
