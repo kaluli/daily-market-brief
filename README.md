@@ -107,9 +107,9 @@ Solo la **app web** (Next.js) en Vercel. La **API en Go** desplegada aparte; su 
    [vercel.com/new](https://vercel.com/new) → iniciar sesión con **kaluli** → Import Git Repository → elige `daily-market-brief`.
 
 2. **Configurar el proyecto**
-   - **Root Directory:** haz clic en *Edit* y selecciona **`apps/web`** (monorepo).
+   - **Root Directory:** ⚠️ **OBLIGATORIO** — haz clic en *Edit* y selecciona **`apps/web`**. Si está vacío o en la raíz, el build fallará con "No Output Directory named .next found".
    - **Framework Preset:** Next.js (se detecta solo).
-   - **Build Command:** `npm run build`
+   - **Build Command:** (vacío; usa `npm run build` por defecto)
    - **Output Directory:** (vacío; Next.js por defecto)
 
 3. **Variables de entorno**
@@ -189,6 +189,7 @@ The **investment analyst** module applies a 10-step framework to each news item:
 
 ## Troubleshooting
 
+- **"No Output Directory named .next found"** en Vercel → En el proyecto Vercel: Settings → General → Root Directory. Debe estar en **`apps/web`**, no vacío ni en la raíz del repo.
 - **"database: ..."** when starting the API → Check that Postgres is running and your database is configured (see `.env.example`).
 - **"address already in use"** → Port 3090 is taken. Use `PORT=3091 ./scripts/run-api.sh` and for the web: `NEXT_PUBLIC_API_URL=http://localhost:3091 npm run dev`.
 - **Web shows no data** → Run `make ingest` then `make summarize` (or `make summarize DAY=YYYY-MM-DD`).

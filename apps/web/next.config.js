@@ -1,6 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  output: 'standalone',
+  // standalone solo para Docker; en Vercel causa problemas con .next en monorepos
+  ...(process.env.VERCEL ? {} : { output: 'standalone' }),
   async rewrites() {
     const rewritesList = [];
 
