@@ -190,6 +190,7 @@ The **investment analyst** module applies a 10-step framework to each news item:
 ## Troubleshooting
 
 - **"No Output Directory named .next found"** en Vercel → En el proyecto Vercel: Settings → General → Root Directory. Debe estar en **`apps/web`**, no vacío ni en la raíz del repo.
+- **Calendario vacío / no trae noticias** en producción → En Vercel (proyecto web): Settings → Environment Variables. Debe tener **`API_BACKEND_URL`** y **`NEXT_PUBLIC_API_URL`** = URL de tu API (ej. `https://daily-market-brief-api-xxx.vercel.app`). Redeploy después de agregar variables.
 - **"database: ..."** when starting the API → Check that Postgres is running and your database is configured (see `.env.example`).
 - **"address already in use"** → Port 3090 is taken. Use `PORT=3091 ./scripts/run-api.sh` and for the web: `NEXT_PUBLIC_API_URL=http://localhost:3091 npm run dev`.
 - **Web shows no data** → Run `make ingest` then `make summarize` (or `make summarize DAY=YYYY-MM-DD`).

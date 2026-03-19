@@ -81,7 +81,8 @@ export async function summaryByDayWithTranslations(day: string): Promise<{
   const base =
     typeof window !== "undefined"
       ? window.location.origin
-      : process.env.NEXT_PUBLIC_APP_URL || "";
+      : process.env.NEXT_PUBLIC_APP_URL ||
+        (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "");
   const r = await fetch(`${base}/api/day/${encodeURIComponent(day)}`);
   if (r.status === 404) return null;
   if (!r.ok) {
