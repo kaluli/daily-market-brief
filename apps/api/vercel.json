@@ -1,6 +1,5 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "framework": "other",
   "buildCommand": "mkdir -p .next && echo '{}' > .next/placeholder.json",
   "outputDirectory": ".next",
   "rewrites": [
