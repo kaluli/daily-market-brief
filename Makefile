@@ -1,4 +1,4 @@
-.PHONY: up down migrate ingest summarize test
+.PHONY: up down migrate ingest summarize test install-all bootstrap-local run-api run-web
 
 # Default day for summarize (today UTC)
 DAY ?= $(shell date -u +%Y-%m-%d)
@@ -21,6 +21,15 @@ summarize:
 test:
 	cd apps/api && go test ./...
 	cd apps/web && npm run build
+
+# Dependencias locales (Go + Node) sin levantar servidores
+install-all:
+	cd apps/api && go mod download
+	cd apps/web && npm install
+
+bootstrap-local:
+	chmod +x scripts/bootstrap-local.sh
+	./scripts/bootstrap-local.sh
 
 # Run API locally (needs Postgres)
 run-api:
