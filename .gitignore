@@ -1,6 +1,7 @@
 # Env and secrets
 .env
 .env.local
+.env.neon
 *.pem
 
 # Dependencies
@@ -27,6 +28,7 @@ apps/api/summarize
 *.log
 tmp/
 temp/
+.health_check_tmp
 
 # Generated summaries (ingest + summarize)
 summaries/*.txt

@@ -23,6 +23,8 @@ La API usa Postgres. Por defecto: `postgres://marketbrief:marketbrief_secret@loc
   ```
   Debe salir `migrations ok`. Si la API arranca y falla con `database: ...`, revisa que Postgres esté arriba y las migraciones hechas.
 
+- **Neon (Postgres en la nube, mismo patrón que otros proyectos):** ver **[docs/LOCAL_NEON.md](docs/LOCAL_NEON.md)** — archivo `.env.neon` con `DATABASE_URL`, luego `./scripts/migrate-neon.sh` y `./scripts/run-api-neon.sh`.
+
 ### 1. Start the API
 
 En una terminal, desde la **raíz del proyecto**:
