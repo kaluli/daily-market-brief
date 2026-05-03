@@ -46,7 +46,7 @@ En otra terminal (la web sigue usando el proxy a la API en 3090):
 cd apps/web && npm run dev
 ```
 
-Abrí **http://localhost:3000**.
+Abrí **http://localhost:3000**. Si ese puerto está ocupado: `npm run dev:3001` o desde la raíz `make run-web WEB_PORT=3001` → **http://localhost:3001**.
 
 ## 6. Datos en Neon (opcional)
 

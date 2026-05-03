@@ -26,6 +26,7 @@ test:
 run-api:
 	cd apps/api && CONFIG_DIR=../../config SUMMARIES_PATH=../../summaries go run cmd/server/main.go
 
-# Run Web locally
+# Run Web locally (WEB_PORT=3001 si el 3000 está ocupado por otra app)
+WEB_PORT ?= 3000
 run-web:
-	cd apps/web && npm run dev
+	cd apps/web && npx next dev -p $(WEB_PORT)

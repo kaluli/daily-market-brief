@@ -48,7 +48,18 @@ npm install   # solo la primera vez
 npm run dev
 ```
 
-Abre en el navegador **http://localhost:3000** (calendario y vistas por día/semana/mes). La web usa por defecto el proxy `/api/v1` cuando corre en localhost:3000, así que no hace falta definir `NEXT_PUBLIC_API_URL`.
+Abre en el navegador **http://localhost:3000** (calendario y vistas por día/semana/mes). La web usa por defecto el proxy `/api/v1` cuando corre en localhost (cualquier puerto), así que no hace falta definir `NEXT_PUBLIC_API_URL`.
+
+**Si el puerto 3000 está ocupado** por otra app:
+
+```bash
+# desde la raíz del repo
+make run-web WEB_PORT=3001
+# o dentro de apps/web:
+npm run dev:3001
+```
+
+Luego abrí **http://localhost:3001**.
 
 ### 3. (Optional) Populate the calendar with data
 
@@ -67,7 +78,7 @@ make summarize   # generates summary for today (UTC)
 
 | Service | URL |
 |---------|-----|
-| **Web (calendar)** | http://localhost:3000 |
+| **Web (calendar)** | http://localhost:3000 (u otro puerto si usás `WEB_PORT` / `dev:3001`) |
 | **API** | http://localhost:3090 |
 | **API via web (same origin)** | http://localhost:3000/api/v1 |
 | **Admin (sources)** | http://localhost:3000/api/v1/admin |
