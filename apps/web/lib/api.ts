@@ -1,30 +1,48 @@
-/** True si la app puede llamar a la API (localhost con proxy o NEXT_PUBLIC_API_URL en producción). */
+/** URL pública válida (no placeholders tipo "temp"). */
+function isValidHttpUrl(s: string | undefined): boolean {
+  if (!s?.trim()) return false;
+  const t = s.trim();
+  return t.startsWith("http://") || t.startsWith("https://");
+}
+
+/** Cliente en localhost: siempre usamos el proxy del propio Next (cualquier puerto). */
+function isLocalhostBrowser(): boolean {
+  return typeof window !== "undefined" && window.location?.hostname === "localhost";
+}
+
+/** True si la app puede llamar a la API (localhost con proxy o NEXT_PUBLIC_API_URL válida en prod). */
 export function hasApi(): boolean {
-  if (process.env.NEXT_PUBLIC_API_URL) return true;
-  if (typeof window !== "undefined" && window.location?.hostname === "localhost") return true;
+  if (isLocalhostBrowser()) return true;
+  if (isValidHttpUrl(process.env.NEXT_PUBLIC_API_URL)) return true;
   return false;
 }
 
 /**
- * Base URL de la API. En localhost usa el proxy /api/v1.
- * En producción debe ser el origen de la API (sin /api/v1); si viene con /api/v1 se quita para no duplicar /api en las rutas.
+ * Base URL de la API. En localhost (browser) usa el proxy /api/v1 del mismo origen (cualquier puerto).
+ * En producción: NEXT_PUBLIC_API_URL debe ser http(s) válido; valores como "temp" se ignoran en dev local.
  */
 export function getApiUrl(): string {
-  if (process.env.NEXT_PUBLIC_API_URL) {
-    const base = process.env.NEXT_PUBLIC_API_URL.replace(/\/api\/v1\/?$/, "").replace(/\/$/, "");
-    return base || process.env.NEXT_PUBLIC_API_URL;
-  }
-  if (typeof window !== "undefined" && window.location?.hostname === "localhost") {
+  if (isLocalhostBrowser()) {
     return `${window.location.origin}/api/v1`;
+  }
+  const pub = process.env.NEXT_PUBLIC_API_URL?.trim();
+  if (isValidHttpUrl(pub)) {
+    const base = pub!.replace(/\/api\/v1\/?$/, "").replace(/\/$/, "");
+    return base || pub!;
   }
   return "";
 }
 
-/** Base URL de la API (enlaces, admin). En cliente con origin localhost usa proxy. */
-export const apiBaseUrl =
-  typeof window !== "undefined" && window.location?.hostname === "localhost"
-    ? `${window.location.origin}/api/v1`
-    : (process.env.NEXT_PUBLIC_API_URL?.replace(/\/api\/v1\/?$/, "").replace(/\/$/, "") || process.env.NEXT_PUBLIC_API_URL || "");
+/** Panel admin de la API (enlace en layout). Mismo origen vía proxy en local. */
+export function apiAdminHref(): string {
+  if (isLocalhostBrowser()) return "/api/v1/admin";
+  const pub = process.env.NEXT_PUBLIC_API_URL?.trim();
+  if (isValidHttpUrl(pub)) {
+    const base = pub!.replace(/\/api\/v1\/?$/, "").replace(/\/$/, "") || pub!;
+    return `${base}/admin`;
+  }
+  return "/api/v1/admin";
+}
 
 export type SummaryMeta = {
   day: string;

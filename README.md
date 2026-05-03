@@ -206,4 +206,4 @@ The **investment analyst** module applies a 10-step framework to each news item:
 - **Calendario vacío / no trae noticias** en producción → En Vercel (proyecto web): Settings → Environment Variables. Debe tener **`API_BACKEND_URL`** y **`NEXT_PUBLIC_API_URL`** = URL de tu API (ej. `https://daily-market-brief-api-xxx.vercel.app`). Redeploy después de agregar variables.
 - **"database: ..."** when starting the API → Check that Postgres is running and your database is configured (see `.env.example`).
 - **"address already in use"** → Port 3090 is taken. Use `PORT=3091 ./scripts/run-api.sh` and for the web: `NEXT_PUBLIC_API_URL=http://localhost:3091 npm run dev`.
-- **Web shows no data** → Run `make ingest` then `make summarize` (or `make summarize DAY=YYYY-MM-DD`).
+- **Web no trae datos en local en puerto 3001** → Si `apps/web/.env.local` tiene `NEXT_PUBLIC_API_URL` con un valor que no sea una URL `http(s)` (ej. `"temp"` de Vercel CLI), borrá esa línea o poné la URL real de la API. La app prioriza el proxy en `localhost` cuando la variable no es una URL válida.
