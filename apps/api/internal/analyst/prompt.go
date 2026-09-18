@@ -49,6 +49,7 @@ For each affected asset classify: Bullish | Bearish | Neutral
 
 STEP 7 — Generate Investment Signals
 If applicable, suggest: Long opportunities, Short opportunities, Pair trades, Sector rotations, Macro trades. Explain briefly.
+Each signal in investment_signals must be a single plain string (e.g. "Long XLE on rising oil prices"), never a nested object.
 
 STEP 8 — Time Horizon
 Estimate impact duration: Intraday | Short Term (days to weeks) | Medium Term (weeks to months) | Long Term (structural)

@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/daily-market-brief/api/internal/agents"
 	"github.com/daily-market-brief/api/internal/analyst"
 	"github.com/daily-market-brief/api/internal/db"
 	"github.com/gofiber/fiber/v2"
@@ -241,12 +242,145 @@ func (s *Server) analysisByDay(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{"day": day.Format("2006-01-02"), "items_analyzed": len(results), "analyses": results})
 }
 
-func (s *Server) stubPortfolios(c *fiber.Ctx) error {
-	return c.JSON(fiber.Map{"message": "Phase 4: agent portfolios stub", "data": []interface{}{}})
+// agentsPortfolios returns a snapshot of both investor agents (risky, conservative):
+// cash, open positions (valued at the latest known price), and recent trades.
+// Optional ?from=YYYY-MM-DD&to=YYYY-MM-DD lists every trade in that period
+// instead of just the most recent 10 (e.g. to inspect one specific month).
+func (s *Server) agentsPortfolios(c *fiber.Ctx) error {
+	from, to, err := parseOptionalDateRange(c)
+	if err != nil {
+		return c.Status(http.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
+	}
+	var out []*agents.PortfolioView
+	for _, profile := range agents.All {
+		v, err := agents.BuildPortfolioViewRange(c.Context(), s.db, profile, from, to)
+		if err != nil {
+			return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+		}
+		out = append(out, v)
+	}
+	return c.JSON(fiber.Map{"portfolios": out})
 }
 
-func (s *Server) stubPortfolioByID(c *fiber.Ctx) error {
-	return c.JSON(fiber.Map{"message": "Phase 4: agent portfolio stub", "id": c.Params("id")})
+// parseOptionalDateRange reads ?from=YYYY-MM-DD&to=YYYY-MM-DD from the query
+// string. Returns (nil, nil, nil) if neither is present.
+func parseOptionalDateRange(c *fiber.Ctx) (*time.Time, *time.Time, error) {
+	fromStr := c.Query("from")
+	toStr := c.Query("to")
+	if fromStr == "" && toStr == "" {
+		return nil, nil, nil
+	}
+	from, err := time.Parse("2006-01-02", fromStr)
+	if err != nil {
+		return nil, nil, fmt.Errorf("invalid from date (use YYYY-MM-DD)")
+	}
+	to, err := time.Parse("2006-01-02", toStr)
+	if err != nil {
+		return nil, nil, fmt.Errorf("invalid to date (use YYYY-MM-DD)")
+	}
+	return &from, &to, nil
+}
+
+// agentPortfolioByID returns one agent's portfolio. :id is the risk profile
+// name ("risky" or "conservative").
+func (s *Server) agentPortfolioByID(c *fiber.Ctx) error {
+	profile, ok := agents.ByName(c.Params("id"))
+	if !ok {
+		return c.Status(http.StatusNotFound).JSON(fiber.Map{"error": "unknown risk profile (use: risky, conservative)"})
+	}
+	v, err := agents.BuildPortfolioView(c.Context(), s.db, profile)
+	if err != nil {
+		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+	}
+	return c.JSON(v)
+}
+
+// agentsRunDay runs one day's trading cycle for every risk-profile agent:
+// funds the monthly allowance if due, analyzes that day's news, and lets
+// each profile decide and execute trades. Body: {"day":"YYYY-MM-DD"}
+// (optional, defaults to today UTC).
+func (s *Server) agentsRunDay(c *fiber.Ctx) error {
+	var body struct {
+		Day string `json:"day"`
+	}
+	_ = c.BodyParser(&body) // optional body; ignore parse errors on empty body
+
+	day := time.Now().UTC()
+	day = time.Date(day.Year(), day.Month(), day.Day(), 0, 0, 0, 0, time.UTC)
+	if body.Day != "" {
+		parsed, err := time.Parse("2006-01-02", body.Day)
+		if err != nil {
+			return c.Status(http.StatusBadRequest).JSON(fiber.Map{"error": "invalid day (use YYYY-MM-DD)"})
+		}
+		day = parsed
+	}
+
+	results, err := agents.RunDay(c.Context(), s.db, s.analyst, day)
+	if err != nil {
+		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+	}
+	return c.JSON(fiber.Map{"day": day.Format("2006-01-02"), "results": results})
+}
+
+// agentsFeedback asks the third agent — a coach with no trading power — to
+// review both portfolios and answer the user's question (or give a general
+// review if none is given). Body: {"question": "..."} (optional).
+func (s *Server) agentsFeedback(c *fiber.Ctx) error {
+	var body struct {
+		Question string `json:"question"`
+	}
+	_ = c.BodyParser(&body)
+
+	risky, err := agents.BuildPortfolioView(c.Context(), s.db, agents.Risky)
+	if err != nil {
+		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+	}
+	conservative, err := agents.BuildPortfolioView(c.Context(), s.db, agents.Conservative)
+	if err != nil {
+		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+	}
+
+	complete, provider := analyst.NewChatCompleterFromEnv()
+	userPrompt := agents.BuildFeedbackUserPrompt(risky, conservative, body.Question)
+	answer, err := complete(c.Context(), agents.FeedbackSystemPrompt, userPrompt)
+	if err != nil {
+		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"error": fmt.Sprintf("feedback agent (%s): %v", provider, err)})
+	}
+
+	if _, err := s.db.InsertFeedback(c.Context(), body.Question, answer, provider); err != nil {
+		// Non-fatal: still return the answer even if logging it failed.
+		fmt.Println("agents feedback: failed to log:", err)
+	}
+
+	return c.JSON(fiber.Map{
+		"provider": provider,
+		"question": body.Question,
+		"answer":   answer,
+		"portfolios": fiber.Map{
+			"risky":        risky,
+			"conservative": conservative,
+		},
+	})
+}
+
+// agentsFeedbackHistory returns the most recent feedback Q&A exchanges.
+// Optional ?from=YYYY-MM-DD&to=YYYY-MM-DD restricts to that period instead
+// of just the most recent 20 entries.
+func (s *Server) agentsFeedbackHistory(c *fiber.Ctx) error {
+	from, to, err := parseOptionalDateRange(c)
+	if err != nil {
+		return c.Status(http.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
+	}
+	var entries []db.FeedbackEntry
+	if from != nil && to != nil {
+		entries, err = s.db.FeedbackInRange(c.Context(), *from, *to)
+	} else {
+		entries, err = s.db.RecentFeedback(c.Context(), 20)
+	}
+	if err != nil {
+		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+	}
+	return c.JSON(fiber.Map{"feedback": entries})
 }
 
 func firstDayOfISOWeek(year, week int) time.Time {

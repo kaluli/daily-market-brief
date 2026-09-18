@@ -198,6 +198,20 @@ The **investment analyst** module applies a 10-step framework to each news item:
 
 **With OpenAI:** Set `OPENAI_API_KEY` (and optionally `OPENAI_MODEL`, default `gpt-4o-mini`). When the API starts, the LLM analyst is used. Without the key, a stub returns placeholder values.
 
+**With a local Ollama model (free, no API key):** Set `LLM_PROVIDER=ollama` (and optionally `OLLAMA_BASE_URL`, `OLLAMA_MODEL`, default `llama3.2:3b`). See **[docs/LOCAL_OLLAMA.md](docs/LOCAL_OLLAMA.md)** for how to expose Ollama on your network if it runs on a different machine than the API.
+
+If both are configured, `LLM_PROVIDER` decides which one is used; if unset, `OLLAMA_BASE_URL` takes priority over `OPENAI_API_KEY`, and the stub is used if neither is set.
+
+---
+
+## Investor agents (risky / conservative / feedback coach)
+
+Three simulated agents (fictitious money): an aggressive and a conservative trading
+profile that act on the investment analyst's daily output, plus a feedback coach you
+interact with directly. See **[docs/AGENTS.md](docs/AGENTS.md)** for the full design,
+the fixed ETF universe, how to load real historical prices, and the API endpoints
+(`/api/agents/portfolios`, `/api/agents/run-day`, `/api/agents/feedback`).
+
 ---
 
 ## Troubleshooting

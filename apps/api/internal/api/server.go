@@ -63,9 +63,12 @@ func (s *Server) routes() {
 	s.app.Post("/api/analyze", s.analyzeOne)
 	s.app.Get("/api/analysis/day/:day", s.analysisByDay)
 
-	// Phase 4 stubs
-	s.app.Get("/api/agents/portfolios", s.stubPortfolios)
-	s.app.Get("/api/agents/portfolios/:id", s.stubPortfolioByID)
+	// Investor agents (risky / conservative simulated portfolios + feedback coach)
+	s.app.Get("/api/agents/portfolios", s.agentsPortfolios)
+	s.app.Get("/api/agents/portfolios/:id", s.agentPortfolioByID)
+	s.app.Post("/api/agents/run-day", s.agentsRunDay)
+	s.app.Post("/api/agents/feedback", s.agentsFeedback)
+	s.app.Get("/api/agents/feedback", s.agentsFeedbackHistory)
 
 	// Admin: panel HTML + API
 	s.app.Get("/admin", s.adminPage)

@@ -58,10 +58,44 @@ CREATE TABLE IF NOT EXISTS positions (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 `
+
+	// Phase 4: the actual investor agents (risky / conservative trading
+	// profiles + a feedback coach). Builds on top of the stub tables above
+	// with additive, idempotent changes so it's safe to run against a
+	// database that already has the stub tables.
+	MigrationAgentsSchema = `
+ALTER TABLE portfolios ADD COLUMN IF NOT EXISTS risk_profile TEXT NOT NULL DEFAULT '';
+ALTER TABLE portfolios ADD COLUMN IF NOT EXISTS cash_cents BIGINT NOT NULL DEFAULT 0;
+ALTER TABLE portfolios ADD COLUMN IF NOT EXISTS monthly_allowance_cents BIGINT NOT NULL DEFAULT 500000;
+ALTER TABLE portfolios ADD COLUMN IF NOT EXISTS last_funded_month DATE;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_portfolios_risk_profile ON portfolios(risk_profile);
+
+ALTER TABLE trades ADD COLUMN IF NOT EXISTS news_item_id UUID REFERENCES news_items(id);
+ALTER TABLE trades ADD COLUMN IF NOT EXISTS reasoning TEXT NOT NULL DEFAULT '';
+CREATE INDEX IF NOT EXISTS idx_trades_portfolio_executed ON trades(portfolio_id, executed_at DESC);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_positions_portfolio_ticker ON positions(portfolio_id, ticker);
+
+CREATE TABLE IF NOT EXISTS asset_prices (
+    ticker TEXT NOT NULL,
+    day DATE NOT NULL,
+    close_cents BIGINT NOT NULL,
+    PRIMARY KEY (ticker, day)
+);
+
+CREATE TABLE IF NOT EXISTS agent_feedback (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    asked_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    question TEXT NOT NULL DEFAULT '',
+    answer TEXT NOT NULL,
+    provider TEXT NOT NULL DEFAULT ''
+);
+CREATE INDEX IF NOT EXISTS idx_agent_feedback_asked_at ON agent_feedback(asked_at DESC);
+`
 )
 
 func (db *DB) Migrate() error {
-	for _, m := range []string{MigrationNewsItems, MigrationDailySummaries, MigrationPortfoliosStub} {
+	for _, m := range []string{MigrationNewsItems, MigrationDailySummaries, MigrationPortfoliosStub, MigrationAgentsSchema} {
 		if _, err := db.Exec(m); err != nil {
 			return err
 		}

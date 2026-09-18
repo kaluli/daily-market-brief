@@ -5,6 +5,15 @@ cd "$(dirname "$0")/.."
 ROOT="$(pwd)"
 API_DIR="$ROOT/apps/api"
 
+# Load ./.env if present (e.g. LLM_PROVIDER/OLLAMA_* for the local analyst).
+# Values already exported in the shell take precedence over the file.
+if [ -f "$ROOT/.env" ]; then
+  set -a
+  # shellcheck disable=SC1091
+  source "$ROOT/.env"
+  set +a
+fi
+
 export DATABASE_URL="${DATABASE_URL:-postgres://marketbrief:marketbrief_secret@localhost:5432/marketbrief?sslmode=disable}"
 export SUMMARIES_PATH="${SUMMARIES_PATH:-$ROOT/summaries}"
 export CONFIG_DIR="${CONFIG_DIR:-$ROOT/config}"

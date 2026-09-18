@@ -34,3 +34,4 @@ temp/
 summaries/*.txt
 .vercel
 .env*.local
+apps/web/tsconfig.tsbuildinfo

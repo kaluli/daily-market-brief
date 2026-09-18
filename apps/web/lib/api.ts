@@ -205,3 +205,76 @@ export async function setSourceEnabled(
   }
   return r.json();
 }
+
+// --- Investor agents ---
+
+export type AgentPosition = {
+  ticker: string;
+  quantity: number;
+  avg_cost_usd: number;
+};
+
+export type AgentTrade = {
+  ticker: string;
+  side: "buy" | "sell";
+  quantity: number;
+  price_usd: number;
+  executed_at: string;
+  reasoning: string;
+};
+
+export type AgentPortfolio = {
+  risk_profile: string;
+  label: string;
+  cash_usd: number;
+  positions_value_usd: number;
+  total_equity_usd: number;
+  positions: AgentPosition[];
+  recent_trades: AgentTrade[];
+};
+
+export type AgentDateRange = { from: string; to: string };
+
+export async function getAgentPortfolios(range?: AgentDateRange): Promise<AgentPortfolio[]> {
+  if (!hasApi()) return [];
+  const qs = range ? `?from=${range.from}&to=${range.to}` : "";
+  const r = await fetch(`${getApiUrl()}/api/agents/portfolios${qs}`);
+  if (!r.ok) throw new Error("Failed to fetch agent portfolios");
+  const data = await r.json();
+  return (data as { portfolios?: AgentPortfolio[] }).portfolios ?? [];
+}
+
+export type AgentFeedbackEntry = {
+  id: string;
+  asked_at: string;
+  question: string;
+  answer: string;
+  provider: string;
+};
+
+export async function getAgentFeedback(range?: AgentDateRange): Promise<AgentFeedbackEntry[]> {
+  if (!hasApi()) return [];
+  const qs = range ? `?from=${range.from}&to=${range.to}` : "";
+  const r = await fetch(`${getApiUrl()}/api/agents/feedback${qs}`);
+  if (!r.ok) throw new Error("Failed to fetch agent feedback");
+  const data = await r.json();
+  return (data as { feedback?: AgentFeedbackEntry[] }).feedback ?? [];
+}
+
+export async function askAgentCoach(question: string): Promise<{
+  provider: string;
+  question: string;
+  answer: string;
+}> {
+  if (!hasApi()) throw new Error("API no configurada");
+  const r = await fetch(`${getApiUrl()}/api/agents/feedback`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ question }),
+  });
+  if (!r.ok) {
+    const err = await r.json().catch(() => ({}));
+    throw new Error((err as { error?: string }).error || "Failed to ask coach");
+  }
+  return r.json();
+}

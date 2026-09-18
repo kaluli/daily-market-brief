@@ -4,6 +4,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/daily-market-brief/api/internal/analyst"
 	"github.com/daily-market-brief/api/internal/api"
@@ -30,12 +31,31 @@ func main() {
 	defer d.Close()
 
 	var a analyst.Analyzer
-	if os.Getenv("OPENAI_API_KEY") != "" {
+	switch strings.ToLower(os.Getenv("LLM_PROVIDER")) {
+	case "ollama":
+		a = analyst.NewOllamaAnalyzer("", "")
+		log.Print("analyst: using Ollama (LLM_PROVIDER=ollama)")
+	case "openai":
 		a = analyst.NewOpenAIAnalyzer("", "")
-		log.Print("analyst: using OpenAI (OPENAI_API_KEY set)")
-	} else {
+		log.Print("analyst: using OpenAI (LLM_PROVIDER=openai)")
+	case "stub":
 		a = analyst.NewStub()
-		log.Print("analyst: using stub (set OPENAI_API_KEY for LLM analysis)")
+		log.Print("analyst: using stub (LLM_PROVIDER=stub)")
+	case "":
+		// No explicit provider: auto-detect from whichever is configured.
+		switch {
+		case os.Getenv("OLLAMA_BASE_URL") != "":
+			a = analyst.NewOllamaAnalyzer("", "")
+			log.Print("analyst: using Ollama (OLLAMA_BASE_URL set)")
+		case os.Getenv("OPENAI_API_KEY") != "":
+			a = analyst.NewOpenAIAnalyzer("", "")
+			log.Print("analyst: using OpenAI (OPENAI_API_KEY set)")
+		default:
+			a = analyst.NewStub()
+			log.Print("analyst: using stub (set OLLAMA_BASE_URL or OPENAI_API_KEY for LLM analysis)")
+		}
+	default:
+		log.Fatalf("unknown LLM_PROVIDER=%q (use: ollama, openai, stub)", os.Getenv("LLM_PROVIDER"))
 	}
 	configDir := config.FindConfigDir()
 	srv := api.New(d, summariesPath, a, configDir)
