@@ -193,10 +193,18 @@ export default function AgentsPage() {
       {portfolios.length === 0 && !error ? (
         <p className="text-slate-500">Todavía no hay carteras. Corré al menos un día de agentes.</p>
       ) : (
-        <div className="grid gap-6 md:grid-cols-2">
-          {portfolios.map((p) => (
-            <PortfolioCard key={p.risk_profile} portfolio={p} filtered={!!activeRange} />
-          ))}
+        <div className="space-y-3">
+          <div className="inline-flex items-center gap-2 rounded-lg border border-blue-500/30 bg-blue-500/10 px-4 py-2 text-sm">
+            <span className="text-blue-300">Periodo analizado:</span>
+            <span className="font-semibold text-white">
+              {activeRange ? `${activeRange.from} → ${activeRange.to}` : "Estado actual (últimas operaciones)"}
+            </span>
+          </div>
+          <div className="grid gap-6 md:grid-cols-2">
+            {portfolios.map((p) => (
+              <PortfolioCard key={p.risk_profile} portfolio={p} filtered={!!activeRange} />
+            ))}
+          </div>
         </div>
       )}
 
@@ -326,6 +334,7 @@ function PortfolioCard({ portfolio, filtered }: { portfolio: AgentPortfolio; fil
                   <span className="text-slate-200">{t.quantity} {t.ticker} @ {usd(t.price_usd)}</span>
                   <span className="text-xs text-slate-500">{t.executed_at}</span>
                 </div>
+                <p className="mt-1 text-xs text-slate-500">Cash restante: <span className="text-slate-300">{usd(t.cash_after_usd)}</span></p>
                 {t.reasoning && <p className="mt-1 text-xs text-slate-400">{t.reasoning}</p>}
               </li>
             ))}

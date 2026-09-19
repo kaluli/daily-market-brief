@@ -221,6 +221,7 @@ export type AgentTrade = {
   price_usd: number;
   executed_at: string;
   reasoning: string;
+  cash_after_usd: number;
 };
 
 export type AgentPortfolio = {

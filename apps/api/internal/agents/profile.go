@@ -1,5 +1,13 @@
 package agents
 
+import "time"
+
+// SimulationStart is when the fictitious monthly funding began for this
+// simulation (real project start, not each portfolio row's DB creation
+// time). Used to replay historical cash balances — see cmd/rewind-agents
+// and BuildPortfolioViewRange's cash-after-trade calculation.
+var SimulationStart = time.Date(2026, 3, 1, 0, 0, 0, 0, time.UTC)
+
 // RiskProfile parametrizes how a trading agent turns a news analysis into
 // buy/sell decisions: how confident the signal must be, how big a bet to
 // place, and how many positions to hold at once.

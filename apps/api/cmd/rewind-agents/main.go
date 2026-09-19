@@ -23,11 +23,6 @@ import (
 // Por defecto corre en modo -dry-run=true: solo muestra que haria, no toca
 // la base. Revisa la salida y despues corre con -dry-run=false para aplicar.
 //
-// Asume que el fondeo mensual ficticio ($5000/mes) arranco en marzo de 2026
-// (el inicio real de esta simulacion), no en la fecha en que se creo la fila
-// del portfolio en la base (que puede ser una fecha real muy distinta).
-var simulationStart = time.Date(2026, 3, 1, 0, 0, 0, 0, time.UTC)
-
 func main() {
 	fromStr := flag.String("from", "", "primer dia a borrar y re-simular, YYYY-MM-DD (requerido)")
 	dryRun := flag.Bool("dry-run", true, "true: solo muestra que haria. false: aplica los cambios")
@@ -69,7 +64,7 @@ func main() {
 		}
 
 		cashCents := int64(0)
-		monthCursor := time.Date(simulationStart.Year(), simulationStart.Month(), 1, 0, 0, 0, 0, time.UTC)
+		monthCursor := time.Date(agents.SimulationStart.Year(), agents.SimulationStart.Month(), 1, 0, 0, 0, 0, time.UTC)
 		cutoffMonth := time.Date(from.Year(), from.Month(), 1, 0, 0, 0, 0, time.UTC)
 		for !monthCursor.After(cutoffMonth) {
 			cashCents += pf.MonthlyAllowanceCents

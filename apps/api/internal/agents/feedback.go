@@ -6,6 +6,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
+
 	"github.com/daily-market-brief/api/internal/db"
 )
 
@@ -18,12 +20,13 @@ type PositionView struct {
 
 // TradeSummaryView is a human/JSON-friendly view of one past trade.
 type TradeSummaryView struct {
-	Ticker     string  `json:"ticker"`
-	Side       string  `json:"side"`
-	Quantity   int64   `json:"quantity"`
-	PriceUSD   float64 `json:"price_usd"`
-	ExecutedAt string  `json:"executed_at"`
-	Reasoning  string  `json:"reasoning"`
+	Ticker       string  `json:"ticker"`
+	Side         string  `json:"side"`
+	Quantity     int64   `json:"quantity"`
+	PriceUSD     float64 `json:"price_usd"`
+	ExecutedAt   string  `json:"executed_at"`
+	Reasoning    string  `json:"reasoning"`
+	CashAfterUSD float64 `json:"cash_after_usd"` // portfolio cash right after this trade executed
 }
 
 // PortfolioView is a full snapshot of one agent's simulated portfolio.
@@ -70,6 +73,16 @@ func BuildPortfolioViewRange(ctx context.Context, database *db.DB, profile RiskP
 		return nil, err
 	}
 
+	upperBound := time.Now().UTC().AddDate(0, 0, 1)
+	if to != nil {
+		upperBound = *to
+	}
+	allTrades, err := database.TradesByPortfolioRange(ctx, pf.ID, time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC), upperBound)
+	if err != nil {
+		return nil, err
+	}
+	cashAfter := cashAfterByTradeID(allTrades, profile.MonthlyAllowanceCents)
+
 	v := &PortfolioView{
 		RiskProfile:       profile.Name,
 		Label:             profile.Label,
@@ -91,9 +104,36 @@ func BuildPortfolioViewRange(ctx context.Context, database *db.DB, profile RiskP
 		v.RecentTrades = append(v.RecentTrades, TradeSummaryView{
 			Ticker: t.Ticker, Side: t.Side, Quantity: t.Quantity,
 			PriceUSD: float64(t.PriceCents) / 100, ExecutedAt: t.ExecutedAt.Format("2006-01-02"), Reasoning: t.Reasoning,
+			CashAfterUSD: float64(cashAfter[t.ID]) / 100,
 		})
 	}
 	return v, nil
+}
+
+// cashAfterByTradeID replays a portfolio's trade history in chronological
+// order — interleaving the same monthly funding used in cmd/rewind-agents —
+// and returns, for each trade, the portfolio's cash balance immediately
+// after that trade executed. trades must be sorted oldest-first (as
+// TradesByPortfolioRange returns them). Used to show "cash restante" under
+// each trade in the web client.
+func cashAfterByTradeID(trades []db.Trade, monthlyAllowanceCents int64) map[uuid.UUID]int64 {
+	result := make(map[uuid.UUID]int64, len(trades))
+	cash := int64(0)
+	monthCursor := time.Date(SimulationStart.Year(), SimulationStart.Month(), 1, 0, 0, 0, 0, time.UTC)
+	for _, t := range trades {
+		for !monthCursor.After(t.ExecutedAt) {
+			cash += monthlyAllowanceCents
+			monthCursor = monthCursor.AddDate(0, 1, 0)
+		}
+		amount := t.Quantity * t.PriceCents
+		if t.Side == "buy" {
+			cash -= amount
+		} else {
+			cash += amount
+		}
+		result[t.ID] = cash
+	}
+	return result
 }
 
 // RenderForPrompt turns a portfolio view into plain text for the feedback LLM prompt.
