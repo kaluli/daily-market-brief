@@ -23,6 +23,7 @@ export default function RootLayout({
             <a href="/" className="text-slate-400 hover:text-white">Calendar</a>
             <a href="/last-10" className="text-slate-400 hover:text-white">Last 10 days</a>
             <a href="/agents" className="text-slate-400 hover:text-white">Agentes</a>
+            <a href="/glosario" className="text-slate-400 hover:text-white">Glosario</a>
             <a href={apiAdminHref()} className="text-slate-400 hover:text-white" target="_blank" rel="noopener noreferrer">API status</a>
           </nav>
         </header>
