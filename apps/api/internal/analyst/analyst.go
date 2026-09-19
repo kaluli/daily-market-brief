@@ -38,7 +38,6 @@ func (s *StubAnalyzer) Analyze(ctx context.Context, input NewsInput) (*AnalysisR
 		AffectedAssets:         []string{},
 		DirectionalBias:        map[string]string{},
 		InvestmentSignals:      []string{},
-		TimeHorizon:            HorizonShortTerm,
 		SignalStrength:         "1",
 	}, nil
 }

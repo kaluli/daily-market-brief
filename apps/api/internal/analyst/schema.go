@@ -1,6 +1,6 @@
 package analyst
 
-// AnalysisResult is the structured output of the AI investment analyst (STEP 10).
+// AnalysisResult is the structured output of the AI investment analyst (STEP 9).
 // Used for JSON response and optional persistence.
 type AnalysisResult struct {
 	Relevance               string            `json:"relevance"`                 // Market Moving | Potentially Relevant | Noise
@@ -12,7 +12,6 @@ type AnalysisResult struct {
 	AffectedAssets          []string          `json:"affected_assets"`          // Stocks, sectors, indices, commodities, currencies, bonds
 	DirectionalBias         map[string]string `json:"directional_bias"`         // asset -> Bullish | Bearish | Neutral
 	InvestmentSignals       []string          `json:"investment_signals"`         // Long/short/pair/rotation/macro suggestions
-	TimeHorizon             string            `json:"time_horizon"`              // Intraday | Short Term | Medium Term | Long Term
 	SignalStrength          string            `json:"signal_strength"`            // 1-10 score as string
 }
 
@@ -52,10 +51,3 @@ const (
 	ReactionNeutral        = "Neutral"
 )
 
-// Valid time horizons (STEP 8).
-const (
-	HorizonIntraday   = "Intraday"
-	HorizonShortTerm  = "Short Term (days to weeks)"
-	HorizonMediumTerm = "Medium Term (weeks to months)"
-	HorizonLongTerm   = "Long Term (structural)"
-)

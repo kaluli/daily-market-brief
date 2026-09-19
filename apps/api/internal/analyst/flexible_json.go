@@ -22,7 +22,6 @@ func (r *AnalysisResult) UnmarshalJSON(data []byte) error {
 		AffectedAssets           []json.RawMessage          `json:"affected_assets"`
 		DirectionalBias          map[string]json.RawMessage `json:"directional_bias"`
 		InvestmentSignals        []json.RawMessage          `json:"investment_signals"`
-		TimeHorizon              string                     `json:"time_horizon"`
 		SignalStrength           json.RawMessage            `json:"signal_strength"`
 	}
 	if err := json.Unmarshal(data, &alias); err != nil {
@@ -35,7 +34,6 @@ func (r *AnalysisResult) UnmarshalJSON(data []byte) error {
 	r.WhyItMatters = alias.WhyItMatters
 	r.ImpactLevel = alias.ImpactLevel
 	r.ExpectedMarketReaction = alias.ExpectedMarketReaction
-	r.TimeHorizon = alias.TimeHorizon
 	r.SignalStrength = rawToString(alias.SignalStrength)
 
 	r.AffectedAssets = make([]string, 0, len(alias.AffectedAssets))

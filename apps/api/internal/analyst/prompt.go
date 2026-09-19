@@ -51,13 +51,10 @@ STEP 7 — Generate Investment Signals
 If applicable, suggest: Long opportunities, Short opportunities, Pair trades, Sector rotations, Macro trades. Explain briefly.
 Each signal in investment_signals must be a single plain string (e.g. "Long XLE on rising oil prices"), never a nested object.
 
-STEP 8 — Time Horizon
-Estimate impact duration: Intraday | Short Term (days to weeks) | Medium Term (weeks to months) | Long Term (structural)
-
-STEP 9 — Signal Strength
+STEP 8 — Signal Strength
 Score from 1–10 based on how actionable the information is for investors.
 
-STEP 10 — Output Format
+STEP 9 — Output Format
 Return results in structured JSON only, no other text, using this exact schema:
 {
   "relevance": "",
@@ -69,7 +66,6 @@ Return results in structured JSON only, no other text, using this exact schema:
   "affected_assets": [],
   "directional_bias": {},
   "investment_signals": [],
-  "time_horizon": "",
   "signal_strength": ""
 }`
 
@@ -84,6 +80,5 @@ const JSONSchemaExample = `{
   "affected_assets": ["SPY", "QQQ", "2Y Treasury", "USD"],
   "directional_bias": {"SPY": "Bearish", "2Y Treasury": "Bearish", "USD": "Bullish"},
   "investment_signals": ["Short duration; long USD vs EM FX"],
-  "time_horizon": "Short Term (days to weeks)",
   "signal_strength": "7"
 }`
