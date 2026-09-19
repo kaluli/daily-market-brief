@@ -377,14 +377,19 @@ func (db *DB) CountAssetPrices(ctx context.Context) (int, error) {
 }
 
 // InsertFeedback records one Q&A exchange with the feedback/coach agent.
-func (db *DB) InsertFeedback(ctx context.Context, question, answer, provider string) (*FeedbackEntry, error) {
+// askedAt lets a weekly review generated during a historical simulation run
+// be stamped with the simulated period it reviews, instead of the real wall
+// clock time it happened to run at (see cmd/simulate's weeklyFeedback). Zero
+// value falls back to now — used for live interactive coach questions.
+func (db *DB) InsertFeedback(ctx context.Context, question, answer, provider string, askedAt time.Time) (*FeedbackEntry, error) {
+	if askedAt.IsZero() {
+		askedAt = time.Now().UTC()
+	}
 	id := uuid.New()
-	var askedAt time.Time
-	err := db.QueryRowContext(ctx, `
-		INSERT INTO agent_feedback (id, question, answer, provider)
-		VALUES ($1, $2, $3, $4)
-		RETURNING asked_at
-	`, id, question, answer, provider).Scan(&askedAt)
+	_, err := db.ExecContext(ctx, `
+		INSERT INTO agent_feedback (id, asked_at, question, answer, provider)
+		VALUES ($1, $2, $3, $4, $5)
+	`, id, askedAt, question, answer, provider)
 	if err != nil {
 		return nil, err
 	}

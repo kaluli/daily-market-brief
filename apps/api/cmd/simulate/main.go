@@ -106,7 +106,7 @@ func weeklyFeedback(ctx context.Context, d *db.DB, complete analyst.ChatComplete
 		return
 	}
 	log.Printf("feedback semanal:\n%s", answer)
-	if _, err := d.InsertFeedback(ctx, question, answer, provider); err != nil {
+	if _, err := d.InsertFeedback(ctx, question, answer, provider, weekEnd); err != nil {
 		log.Printf("feedback semanal: no se pudo guardar: %v", err)
 	}
 }

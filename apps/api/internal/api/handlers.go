@@ -347,7 +347,7 @@ func (s *Server) agentsFeedback(c *fiber.Ctx) error {
 		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"error": fmt.Sprintf("feedback agent (%s): %v", provider, err)})
 	}
 
-	if _, err := s.db.InsertFeedback(c.Context(), body.Question, answer, provider); err != nil {
+	if _, err := s.db.InsertFeedback(c.Context(), body.Question, answer, provider, time.Now().UTC()); err != nil {
 		// Non-fatal: still return the answer even if logging it failed.
 		fmt.Println("agents feedback: failed to log:", err)
 	}
