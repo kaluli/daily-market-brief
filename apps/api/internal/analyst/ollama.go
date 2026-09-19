@@ -5,13 +5,15 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 )
 
 const (
-	defaultOllamaBaseURL = "http://localhost:11434"
-	defaultOllamaModel   = "llama3.2:3b"
+	defaultOllamaBaseURL       = "http://localhost:11434"
+	defaultOllamaModel         = "llama3.2:3b"
+	defaultOllamaTimeoutSecond = 180 // small local models can take 1-2+ min per request on CPU-only hardware
 )
 
 // newOllamaClient builds the shared HTTP client for a local/LAN Ollama
@@ -34,7 +36,13 @@ func newOllamaClient(baseURL, model string) *chatCompletionsClient {
 	// Ollama has no auth by default. OLLAMA_API_KEY is only needed if you've put
 	// it behind a reverse proxy that requires one.
 	apiKey := os.Getenv("OLLAMA_API_KEY")
-	return newChatCompletionsClient(baseURL+"/v1/chat/completions", apiKey, model, 120*time.Second)
+	timeout := defaultOllamaTimeoutSecond
+	if v := os.Getenv("OLLAMA_TIMEOUT_SECONDS"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n > 0 {
+			timeout = n
+		}
+	}
+	return newChatCompletionsClient(baseURL+"/v1/chat/completions", apiKey, model, time.Duration(timeout)*time.Second)
 }
 
 // OllamaAnalyzer calls a local (or LAN) Ollama server's OpenAI-compatible chat
