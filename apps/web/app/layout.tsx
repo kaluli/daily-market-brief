@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { apiAdminHref } from "@/lib/api";
+import Header from "./components/Header";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -15,19 +15,8 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className="min-h-screen antialiased">
-        <header className="border-b border-slate-700 px-6 py-4">
-          <nav className="flex items-center gap-6">
-            <a href="/" className="text-xl font-semibold text-white">
-              Daily Market Brief
-            </a>
-            <a href="/" className="text-slate-400 hover:text-white">Calendar</a>
-            <a href="/last-10" className="text-slate-400 hover:text-white">Last 10 days</a>
-            <a href="/agents" className="text-slate-400 hover:text-white">Agentes</a>
-            <a href="/glosario" className="text-slate-400 hover:text-white">Glosario</a>
-            <a href={apiAdminHref()} className="text-slate-400 hover:text-white" target="_blank" rel="noopener noreferrer">API status</a>
-          </nav>
-        </header>
-        <main className="mx-auto max-w-5xl px-6 py-8">{children}</main>
+        <Header />
+        <main className="mx-auto max-w-5xl px-4 py-6 sm:px-6 sm:py-8">{children}</main>
       </body>
     </html>
   );
