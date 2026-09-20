@@ -92,10 +92,37 @@ CREATE TABLE IF NOT EXISTS agent_feedback (
 );
 CREATE INDEX IF NOT EXISTS idx_agent_feedback_asked_at ON agent_feedback(asked_at DESC);
 `
+
+	// April improvements: per-portfolio adjustable threshold, a run log for
+	// idempotency/observability, and structured (deterministic, not
+	// LLM-parsed) coach recommendations attached to feedback entries.
+	MigrationAprilImprovements = `
+ALTER TABLE portfolios ADD COLUMN IF NOT EXISTS min_signal_strength INT NOT NULL DEFAULT 0;
+UPDATE portfolios SET min_signal_strength = 5 WHERE risk_profile = 'risky' AND min_signal_strength = 0;
+UPDATE portfolios SET min_signal_strength = 7 WHERE risk_profile = 'conservative' AND min_signal_strength = 0;
+
+CREATE TABLE IF NOT EXISTS simulation_runs (
+    day DATE PRIMARY KEY,
+    news_analyzed INT NOT NULL DEFAULT 0,
+    risky_trades INT NOT NULL DEFAULT 0,
+    conservative_trades INT NOT NULL DEFAULT 0,
+    status TEXT NOT NULL DEFAULT 'ok',
+    error_message TEXT NOT NULL DEFAULT '',
+    model TEXT NOT NULL DEFAULT '',
+    duration_ms BIGINT NOT NULL DEFAULT 0,
+    started_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    finished_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+ALTER TABLE agent_feedback ADD COLUMN IF NOT EXISTS week_start DATE;
+ALTER TABLE agent_feedback ADD COLUMN IF NOT EXISTS week_end DATE;
+ALTER TABLE agent_feedback ADD COLUMN IF NOT EXISTS recommendations JSONB;
+ALTER TABLE agent_feedback ADD COLUMN IF NOT EXISTS recommendation_status TEXT NOT NULL DEFAULT 'none';
+`
 )
 
 func (db *DB) Migrate() error {
-	for _, m := range []string{MigrationNewsItems, MigrationDailySummaries, MigrationPortfoliosStub, MigrationAgentsSchema} {
+	for _, m := range []string{MigrationNewsItems, MigrationDailySummaries, MigrationPortfoliosStub, MigrationAgentsSchema, MigrationAprilImprovements} {
 		if _, err := db.Exec(m); err != nil {
 			return err
 		}

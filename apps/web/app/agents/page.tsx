@@ -5,9 +5,12 @@ import Link from "next/link";
 import {
   getAgentPortfolios,
   getAgentFeedback,
+  getAgentBenchmark,
   askAgentCoach,
+  respondToRecommendation,
   type AgentPortfolio,
   type AgentFeedbackEntry,
+  type AgentBenchmark,
   type AgentDateRange,
 } from "@/lib/api";
 
@@ -31,9 +34,12 @@ function isWeeklyReview(question: string): boolean {
 export default function AgentsPage() {
   const [portfolios, setPortfolios] = useState<AgentPortfolio[]>([]);
   const [feedback, setFeedback] = useState<AgentFeedbackEntry[]>([]);
+  const [benchmark, setBenchmark] = useState<AgentBenchmark | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const [respondingId, setRespondingId] = useState<string | null>(null);
+  const [respondError, setRespondError] = useState<string | null>(null);
 
   const [question, setQuestion] = useState("");
   const [asking, setAsking] = useState(false);
@@ -49,9 +55,14 @@ export default function AgentsPage() {
     if (showSpinner) setLoading(true);
     setError(null);
     try {
-      const [p, f] = await Promise.all([getAgentPortfolios(range), getAgentFeedback(range)]);
+      const [p, f, b] = await Promise.all([
+        getAgentPortfolios(range),
+        getAgentFeedback(range),
+        getAgentBenchmark().catch(() => null), // benchmark is a nice-to-have; don't block the page on it
+      ]);
       setPortfolios(p);
       setFeedback(f);
+      setBenchmark(b);
       setLastUpdated(new Date());
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load");
@@ -59,6 +70,19 @@ export default function AgentsPage() {
       if (showSpinner) setLoading(false);
     }
   }, []);
+
+  async function handleRecommendation(feedbackId: string, action: "apply" | "dismiss") {
+    setRespondingId(feedbackId);
+    setRespondError(null);
+    try {
+      await respondToRecommendation(feedbackId, action);
+      await load(false, activeRange);
+    } catch (err) {
+      setRespondError(err instanceof Error ? err.message : "Failed to respond");
+    } finally {
+      setRespondingId(null);
+    }
+  }
 
   useEffect(() => {
     load(true, activeRange);
@@ -205,6 +229,7 @@ export default function AgentsPage() {
               <PortfolioCard key={p.risk_profile} portfolio={p} filtered={!!activeRange} />
             ))}
           </div>
+          {benchmark && <BenchmarkCard benchmark={benchmark} />}
         </div>
       )}
 
@@ -263,11 +288,76 @@ export default function AgentsPage() {
                   <p className="mb-2 text-sm font-medium text-amber-200/90">{f.question}</p>
                 )}
                 <p className="whitespace-pre-wrap text-sm text-slate-200">{f.answer}</p>
+                {f.recommendation_status === "pending" && f.recommendations && f.recommendations.length > 0 && (
+                  <div className="mt-3 space-y-2 rounded-lg border border-amber-500/40 bg-amber-500/10 p-3">
+                    <p className="text-xs font-medium uppercase tracking-wide text-amber-300">Recomendación del coach</p>
+                    {f.recommendations.map((rec, i) => (
+                      <p key={i} className="text-sm text-amber-100/90">
+                        <span className="font-semibold">{rec.profile}</span>: {rec.field} {rec.current_value} → {rec.suggested_value}. {rec.reason}
+                      </p>
+                    ))}
+                    <div className="flex gap-2 pt-1">
+                      <button
+                        onClick={() => handleRecommendation(f.id, "apply")}
+                        disabled={respondingId === f.id}
+                        className="rounded bg-amber-600 px-3 py-1 text-xs font-medium text-white hover:bg-amber-500 disabled:opacity-50"
+                      >
+                        {respondingId === f.id ? "..." : "Aplicar"}
+                      </button>
+                      <button
+                        onClick={() => handleRecommendation(f.id, "dismiss")}
+                        disabled={respondingId === f.id}
+                        className="rounded bg-slate-700 px-3 py-1 text-xs font-medium text-white hover:bg-slate-600 disabled:opacity-50"
+                      >
+                        Descartar
+                      </button>
+                    </div>
+                  </div>
+                )}
+                {f.recommendation_status === "applied" && (
+                  <p className="mt-2 text-xs text-emerald-400">✓ Recomendación aplicada</p>
+                )}
+                {f.recommendation_status === "dismissed" && (
+                  <p className="mt-2 text-xs text-slate-500">Recomendación descartada</p>
+                )}
               </li>
             ))}
           </ul>
         )}
+        {respondError && <p className="mt-2 text-sm text-red-400">{respondError}</p>}
       </section>
+    </div>
+  );
+}
+
+function BenchmarkCard({ benchmark }: { benchmark: AgentBenchmark }) {
+  return (
+    <div className="rounded-lg border border-dashed border-slate-600 bg-slate-800/30 p-6">
+      <div className="mb-4 flex items-baseline justify-between">
+        <h2 className="text-lg font-semibold text-slate-300">{benchmark.label}</h2>
+        <span className="text-xs uppercase tracking-wide text-slate-500">pasivo, sin operar</span>
+      </div>
+      <div className="mb-2 grid grid-cols-3 gap-3 text-center">
+        <div>
+          <div className="text-xs text-slate-500">Cash</div>
+          <div className="text-base font-semibold">{usd(benchmark.cash_usd)}</div>
+        </div>
+        <div>
+          <div className="text-xs text-slate-500">Posiciones</div>
+          <div className="text-base font-semibold">{usd(benchmark.positions_value_usd)}</div>
+        </div>
+        <div>
+          <div className="text-xs text-slate-500">Equity total</div>
+          <div className="text-base font-semibold text-emerald-400">{usd(benchmark.total_equity_usd)}</div>
+        </div>
+      </div>
+      <p className="text-center text-xs text-slate-500">
+        Retorno desde el inicio: <span className={benchmark.return_pct >= 0 ? "text-emerald-400" : "text-red-400"}>{benchmark.return_pct.toFixed(1)}%</span>
+        {" "}· {benchmark.shares_held} {benchmark.ticker} · fondeado {usd(benchmark.total_funded_usd)}
+      </p>
+      <p className="mt-2 text-center text-xs text-slate-600">
+        Comprar {benchmark.ticker} con el mismo aporte mensual y no operar nunca — el punto de referencia para saber si los agentes realmente agregan valor.
+      </p>
     </div>
   );
 }

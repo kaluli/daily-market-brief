@@ -22,11 +22,15 @@ import (
 // Safe to run in slices (e.g. -from=2026-03-01 -to=2026-03-31, then later
 // -from=2026-04-01 -to=2026-04-30): portfolio state lives in the database,
 // not in this process, so a later run continues from where the last one left
-// off. Do NOT re-run a date range you already simulated — it has no
-// idempotency guard and will execute duplicate trades for those days.
+// off. Each day's outcome is recorded in simulation_runs, so by default a
+// day that already has a successful run is skipped (idempotent re-runs of
+// the same range are safe); pass -force to reprocess anyway (still not
+// duplicate-safe within that forced re-run — it will execute new trades on
+// top of the old ones).
 func main() {
 	fromStr := flag.String("from", "2026-03-01", "primer dia YYYY-MM-DD (incluido)")
 	toStr := flag.String("to", "", "ultimo dia YYYY-MM-DD (incluido; default: hoy UTC)")
+	force := flag.Bool("force", false, "reprocesar dias que ya tienen una corrida exitosa registrada")
 	flag.Parse()
 
 	from, err := time.Parse("2006-01-02", *fromStr)
@@ -63,17 +67,51 @@ func main() {
 	weekStart := from
 	totalDays := 0
 
+	model := os.Getenv("OLLAMA_MODEL")
+	if model == "" {
+		model = provider
+	}
+
 	for day := from; !day.After(to); day = day.AddDate(0, 0, 1) {
 		totalDays++
 		log.Printf("=== dia %s (%d/%d) ===", day.Format("2006-01-02"), totalDays, int(to.Sub(from).Hours()/24)+1)
 
+		if !*force {
+			if ok, err := d.HasSuccessfulRun(ctx, day); err == nil && ok {
+				log.Printf("dia %s: ya tiene una corrida exitosa registrada, se salta (usa -force para reprocesar)", day.Format("2006-01-02"))
+				daysInWeek := int(day.Sub(weekStart).Hours()/24) + 1
+				if daysInWeek >= 7 || day.Equal(to) {
+					weekStart = day.AddDate(0, 0, 1)
+				}
+				continue
+			}
+		}
+
+		started := time.Now()
 		results, err := agents.RunDay(ctx, d, analyzer, day)
+		run := db.SimulationRun{
+			Day: day, Model: model, StartedAt: started, FinishedAt: time.Now(),
+			DurationMS: time.Since(started).Milliseconds(),
+		}
 		if err != nil {
 			log.Printf("dia %s: error: %v (sigo con el proximo dia)", day.Format("2006-01-02"), err)
+			run.Status = "error"
+			run.ErrorMessage = err.Error()
 		} else {
+			run.Status = "ok"
 			for _, r := range results {
 				log.Printf("dia %s: agente %s -> %d operaciones, cash $%.2f", day.Format("2006-01-02"), r.Profile, len(r.Trades), r.CashAfterUSD)
+				run.NewsAnalyzed = r.NewsAnalyzed
+				switch r.Profile {
+				case agents.Risky.Name:
+					run.RiskyTrades = len(r.Trades)
+				case agents.Conservative.Name:
+					run.ConservativeTrades = len(r.Trades)
+				}
 			}
+		}
+		if err := d.UpsertSimulationRun(ctx, run); err != nil {
+			log.Printf("dia %s: no se pudo registrar la corrida: %v", day.Format("2006-01-02"), err)
 		}
 
 		daysInWeek := int(day.Sub(weekStart).Hours()/24) + 1
@@ -89,8 +127,11 @@ func main() {
 
 func weeklyFeedback(ctx context.Context, d *db.DB, complete analyst.ChatCompleteFunc, provider string, weekStart, weekEnd time.Time) {
 	log.Printf("--- feedback semanal: %s a %s ---", weekStart.Format("2006-01-02"), weekEnd.Format("2006-01-02"))
-	risky, err1 := agents.BuildPortfolioView(ctx, d, agents.Risky)
-	conservative, err2 := agents.BuildPortfolioView(ctx, d, agents.Conservative)
+	// Scoped to [weekStart, weekEnd] — NOT the unscoped BuildPortfolioView,
+	// which pulls the last 10 trades ever and previously caused the coach to
+	// misattribute real trades from other weeks to this one.
+	risky, err1 := agents.BuildPortfolioViewRange(ctx, d, agents.Risky, &weekStart, &weekEnd)
+	conservative, err2 := agents.BuildPortfolioViewRange(ctx, d, agents.Conservative, &weekStart, &weekEnd)
 	if err1 != nil || err2 != nil {
 		log.Printf("feedback semanal: no se pudo armar el resumen de carteras (%v / %v)", err1, err2)
 		return
@@ -106,7 +147,21 @@ func weeklyFeedback(ctx context.Context, d *db.DB, complete analyst.ChatComplete
 		return
 	}
 	log.Printf("feedback semanal:\n%s", answer)
-	if _, err := d.InsertFeedback(ctx, question, answer, provider, weekEnd); err != nil {
+
+	var recs []agents.Recommendation
+	for _, profile := range agents.All {
+		pf, err := d.GetPortfolioByRiskProfile(ctx, profile.Name)
+		if err != nil {
+			continue
+		}
+		rec, err := agents.ComputeRecommendation(ctx, d, profile, pf, weekEnd)
+		if err == nil && rec != nil {
+			recs = append(recs, *rec)
+			log.Printf("feedback semanal: recomendacion para %s: %s", profile.Name, rec.Reason)
+		}
+	}
+
+	if _, err := d.InsertFeedbackWithRecommendations(ctx, question, answer, provider, weekEnd, recs); err != nil {
 		log.Printf("feedback semanal: no se pudo guardar: %v", err)
 	}
 }

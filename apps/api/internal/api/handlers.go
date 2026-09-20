@@ -12,6 +12,7 @@ import (
 	"github.com/daily-market-brief/api/internal/analyst"
 	"github.com/daily-market-brief/api/internal/db"
 	"github.com/gofiber/fiber/v2"
+	"github.com/google/uuid"
 )
 
 func (s *Server) root(c *fiber.Ctx) error {
@@ -393,3 +394,68 @@ func firstDayOfISOWeek(year, week int) time.Time {
 	return t
 }
 
+
+// agentsBenchmark returns a passive "buy & hold" comparison for the given
+// ticker (default SPY) using the same monthly allowance as the agents, so
+// risky/conservative can be judged against doing nothing.
+func (s *Server) agentsBenchmark(c *fiber.Ctx) error {
+	ticker := c.Query("ticker", "SPY")
+	v, err := agents.BuildBenchmarkView(c.Context(), s.db, ticker, agents.Risky.MonthlyAllowanceCents, time.Now().UTC())
+	if err != nil {
+		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+	}
+	return c.JSON(v)
+}
+
+// feedbackRecommendationAction applies or dismisses the recommendation(s)
+// attached to a weekly feedback entry. Body: {"action": "apply"|"dismiss"}.
+// Applying updates the relevant portfolio's min_signal_strength directly —
+// nothing changes automatically; this is always an explicit user action.
+func (s *Server) feedbackRecommendationAction(c *fiber.Ctx) error {
+	id, err := uuid.Parse(c.Params("id"))
+	if err != nil {
+		return c.Status(http.StatusBadRequest).JSON(fiber.Map{"error": "invalid feedback id"})
+	}
+	var body struct {
+		Action string `json:"action"`
+	}
+	if err := c.BodyParser(&body); err != nil || (body.Action != "apply" && body.Action != "dismiss") {
+		return c.Status(http.StatusBadRequest).JSON(fiber.Map{"error": `body debe ser {"action": "apply"|"dismiss"}`})
+	}
+
+	entry, err := s.db.FeedbackEntryByID(c.Context(), id)
+	if err != nil {
+		if err == db.ErrNotFound {
+			return c.Status(http.StatusNotFound).JSON(fiber.Map{"error": "feedback not found"})
+		}
+		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+	}
+	if entry.RecommendationStatus != "pending" {
+		return c.Status(http.StatusConflict).JSON(fiber.Map{"error": "esta recomendacion ya fue " + entry.RecommendationStatus})
+	}
+
+	if body.Action == "apply" {
+		var recs []agents.Recommendation
+		if err := json.Unmarshal(entry.Recommendations, &recs); err != nil {
+			return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"error": "no se pudo leer la recomendacion guardada"})
+		}
+		for _, rec := range recs {
+			pf, err := s.db.GetPortfolioByRiskProfile(c.Context(), rec.Profile)
+			if err != nil {
+				return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+			}
+			if err := s.db.UpdatePortfolioMinSignalStrength(c.Context(), pf.ID, rec.SuggestedValue); err != nil {
+				return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+			}
+		}
+	}
+
+	status := "dismissed"
+	if body.Action == "apply" {
+		status = "applied"
+	}
+	if err := s.db.UpdateFeedbackRecommendationStatus(c.Context(), id, status); err != nil {
+		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+	}
+	return c.JSON(fiber.Map{"id": id.String(), "recommendation_status": status})
+}

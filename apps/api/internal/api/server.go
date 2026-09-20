@@ -66,9 +66,11 @@ func (s *Server) routes() {
 	// Investor agents (risky / conservative simulated portfolios + feedback coach)
 	s.app.Get("/api/agents/portfolios", s.agentsPortfolios)
 	s.app.Get("/api/agents/portfolios/:id", s.agentPortfolioByID)
+	s.app.Get("/api/agents/benchmark", s.agentsBenchmark)
 	s.app.Post("/api/agents/run-day", s.agentsRunDay)
 	s.app.Post("/api/agents/feedback", s.agentsFeedback)
 	s.app.Get("/api/agents/feedback", s.agentsFeedbackHistory)
+	s.app.Post("/api/agents/feedback/:id/recommendation", s.feedbackRecommendationAction)
 
 	// Admin: panel HTML + API
 	s.app.Get("/admin", s.adminPage)

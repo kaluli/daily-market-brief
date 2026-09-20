@@ -3,6 +3,7 @@ package db
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -18,6 +19,7 @@ type Portfolio struct {
 	InitialCashCents      int64
 	CashCents             int64
 	MonthlyAllowanceCents int64
+	MinSignalStrength     int
 	LastFundedMonth       *time.Time
 	CreatedAt             time.Time
 }
@@ -48,16 +50,18 @@ type Trade struct {
 
 // FeedbackEntry is one Q&A exchange with the feedback/coach agent.
 type FeedbackEntry struct {
-	ID       uuid.UUID `json:"id"`
-	AskedAt  time.Time `json:"asked_at"`
-	Question string    `json:"question"`
-	Answer   string    `json:"answer"`
-	Provider string    `json:"provider"`
+	ID                   uuid.UUID       `json:"id"`
+	AskedAt              time.Time       `json:"asked_at"`
+	Question             string          `json:"question"`
+	Answer               string          `json:"answer"`
+	Provider             string          `json:"provider"`
+	Recommendations      json.RawMessage `json:"recommendations,omitempty"`
+	RecommendationStatus string          `json:"recommendation_status"`
 }
 
 // EnsurePortfolio returns the portfolio for a risk profile, creating it
 // (with zero cash, to be funded by EnsureMonthlyFunding) if it doesn't exist yet.
-func (db *DB) EnsurePortfolio(ctx context.Context, riskProfile string, startedAt time.Time, monthlyAllowanceCents int64) (*Portfolio, error) {
+func (db *DB) EnsurePortfolio(ctx context.Context, riskProfile string, startedAt time.Time, monthlyAllowanceCents int64, defaultMinSignalStrength int) (*Portfolio, error) {
 	if p, err := db.GetPortfolioByRiskProfile(ctx, riskProfile); err == nil {
 		return p, nil
 	} else if err != ErrNotFound {
@@ -66,10 +70,10 @@ func (db *DB) EnsurePortfolio(ctx context.Context, riskProfile string, startedAt
 
 	id := uuid.New()
 	_, err := db.ExecContext(ctx, `
-		INSERT INTO portfolios (id, agent_type, risk_profile, started_at, initial_cash_cents, cash_cents, monthly_allowance_cents)
-		VALUES ($1, $2, $2, $3, 0, 0, $4)
+		INSERT INTO portfolios (id, agent_type, risk_profile, started_at, initial_cash_cents, cash_cents, monthly_allowance_cents, min_signal_strength)
+		VALUES ($1, $2, $2, $3, 0, 0, $4, $5)
 		ON CONFLICT (risk_profile) DO NOTHING
-	`, id, riskProfile, startedAt.Format("2006-01-02"), monthlyAllowanceCents)
+	`, id, riskProfile, startedAt.Format("2006-01-02"), monthlyAllowanceCents, defaultMinSignalStrength)
 	if err != nil {
 		return nil, err
 	}
@@ -79,7 +83,7 @@ func (db *DB) EnsurePortfolio(ctx context.Context, riskProfile string, startedAt
 // GetPortfolioByRiskProfile looks up a portfolio by its risk profile ("risky"/"conservative").
 func (db *DB) GetPortfolioByRiskProfile(ctx context.Context, riskProfile string) (*Portfolio, error) {
 	return db.scanPortfolio(db.QueryRowContext(ctx, `
-		SELECT id, risk_profile, started_at, initial_cash_cents, cash_cents, monthly_allowance_cents, last_funded_month, created_at
+		SELECT id, risk_profile, started_at, initial_cash_cents, cash_cents, monthly_allowance_cents, min_signal_strength, last_funded_month, created_at
 		FROM portfolios WHERE risk_profile = $1
 	`, riskProfile))
 }
@@ -87,7 +91,7 @@ func (db *DB) GetPortfolioByRiskProfile(ctx context.Context, riskProfile string)
 // GetPortfolio looks up a portfolio by id.
 func (db *DB) GetPortfolio(ctx context.Context, id uuid.UUID) (*Portfolio, error) {
 	return db.scanPortfolio(db.QueryRowContext(ctx, `
-		SELECT id, risk_profile, started_at, initial_cash_cents, cash_cents, monthly_allowance_cents, last_funded_month, created_at
+		SELECT id, risk_profile, started_at, initial_cash_cents, cash_cents, monthly_allowance_cents, min_signal_strength, last_funded_month, created_at
 		FROM portfolios WHERE id = $1
 	`, id))
 }
@@ -95,7 +99,7 @@ func (db *DB) GetPortfolio(ctx context.Context, id uuid.UUID) (*Portfolio, error
 func (db *DB) scanPortfolio(row *sql.Row) (*Portfolio, error) {
 	var p Portfolio
 	var lastFunded sql.NullTime
-	err := row.Scan(&p.ID, &p.RiskProfile, &p.StartedAt, &p.InitialCashCents, &p.CashCents, &p.MonthlyAllowanceCents, &lastFunded, &p.CreatedAt)
+	err := row.Scan(&p.ID, &p.RiskProfile, &p.StartedAt, &p.InitialCashCents, &p.CashCents, &p.MonthlyAllowanceCents, &p.MinSignalStrength, &lastFunded, &p.CreatedAt)
 	if err == sql.ErrNoRows {
 		return nil, ErrNotFound
 	}
@@ -111,7 +115,7 @@ func (db *DB) scanPortfolio(row *sql.Row) (*Portfolio, error) {
 // ListPortfolios returns all agent portfolios, ordered by risk profile name.
 func (db *DB) ListPortfolios(ctx context.Context) ([]Portfolio, error) {
 	rows, err := db.QueryContext(ctx, `
-		SELECT id, risk_profile, started_at, initial_cash_cents, cash_cents, monthly_allowance_cents, last_funded_month, created_at
+		SELECT id, risk_profile, started_at, initial_cash_cents, cash_cents, monthly_allowance_cents, min_signal_strength, last_funded_month, created_at
 		FROM portfolios ORDER BY risk_profile
 	`)
 	if err != nil {
@@ -122,7 +126,7 @@ func (db *DB) ListPortfolios(ctx context.Context) ([]Portfolio, error) {
 	for rows.Next() {
 		var p Portfolio
 		var lastFunded sql.NullTime
-		if err := rows.Scan(&p.ID, &p.RiskProfile, &p.StartedAt, &p.InitialCashCents, &p.CashCents, &p.MonthlyAllowanceCents, &lastFunded, &p.CreatedAt); err != nil {
+		if err := rows.Scan(&p.ID, &p.RiskProfile, &p.StartedAt, &p.InitialCashCents, &p.CashCents, &p.MonthlyAllowanceCents, &p.MinSignalStrength, &lastFunded, &p.CreatedAt); err != nil {
 			return nil, err
 		}
 		if lastFunded.Valid {
@@ -382,18 +386,48 @@ func (db *DB) CountAssetPrices(ctx context.Context) (int, error) {
 // clock time it happened to run at (see cmd/simulate's weeklyFeedback). Zero
 // value falls back to now — used for live interactive coach questions.
 func (db *DB) InsertFeedback(ctx context.Context, question, answer, provider string, askedAt time.Time) (*FeedbackEntry, error) {
+	return db.InsertFeedbackWithRecommendations(ctx, question, answer, provider, askedAt, nil)
+}
+
+// InsertFeedbackWithRecommendations is like InsertFeedback but also attaches
+// zero or more deterministic recommendations (see agents.ComputeRecommendation)
+// computed from real trade history — never parsed from the coach LLM's free
+// text, since a small local model's structured output isn't reliable enough
+// to act on directly. recommendations may be nil or empty.
+func (db *DB) InsertFeedbackWithRecommendations(ctx context.Context, question, answer, provider string, askedAt time.Time, recommendations any) (*FeedbackEntry, error) {
 	if askedAt.IsZero() {
 		askedAt = time.Now().UTC()
 	}
 	id := uuid.New()
+	var recJSON []byte
+	status := "none"
+	if recommendations != nil {
+		b, err := json.Marshal(recommendations)
+		if err != nil {
+			return nil, fmt.Errorf("marshal recommendations: %w", err)
+		}
+		if string(b) != "null" && string(b) != "[]" {
+			recJSON = b
+			status = "pending"
+		}
+	}
 	_, err := db.ExecContext(ctx, `
-		INSERT INTO agent_feedback (id, asked_at, question, answer, provider)
-		VALUES ($1, $2, $3, $4, $5)
-	`, id, askedAt, question, answer, provider)
+		INSERT INTO agent_feedback (id, asked_at, question, answer, provider, recommendations, recommendation_status)
+		VALUES ($1, $2, $3, $4, $5, $6, $7)
+	`, id, askedAt, question, answer, provider, nullableJSON(recJSON), status)
 	if err != nil {
 		return nil, err
 	}
-	return &FeedbackEntry{ID: id, AskedAt: askedAt, Question: question, Answer: answer, Provider: provider}, nil
+	return &FeedbackEntry{ID: id, AskedAt: askedAt, Question: question, Answer: answer, Provider: provider, Recommendations: recJSON, RecommendationStatus: status}, nil
+}
+
+// nullableJSON returns nil (so the driver writes SQL NULL) for an empty byte
+// slice, or the bytes themselves otherwise.
+func nullableJSON(b []byte) interface{} {
+	if len(b) == 0 {
+		return nil
+	}
+	return b
 }
 
 // RewindPortfolio atomically deletes every trade executed on or after
@@ -440,7 +474,7 @@ func (db *DB) RewindPortfolio(ctx context.Context, portfolioID uuid.UUID, from t
 // (inclusive by day), newest first — used to inspect a specific period.
 func (db *DB) FeedbackInRange(ctx context.Context, from, to time.Time) ([]FeedbackEntry, error) {
 	rows, err := db.QueryContext(ctx, `
-		SELECT id, asked_at, question, answer, provider FROM agent_feedback
+		SELECT id, asked_at, question, answer, provider, recommendations, recommendation_status FROM agent_feedback
 		WHERE asked_at >= $1 AND asked_at < $2
 		ORDER BY asked_at DESC
 	`, from.Format("2006-01-02"), to.AddDate(0, 0, 1).Format("2006-01-02"))
@@ -451,7 +485,7 @@ func (db *DB) FeedbackInRange(ctx context.Context, from, to time.Time) ([]Feedba
 	var out []FeedbackEntry
 	for rows.Next() {
 		var f FeedbackEntry
-		if err := rows.Scan(&f.ID, &f.AskedAt, &f.Question, &f.Answer, &f.Provider); err != nil {
+		if err := rows.Scan(&f.ID, &f.AskedAt, &f.Question, &f.Answer, &f.Provider, &f.Recommendations, &f.RecommendationStatus); err != nil {
 			return nil, err
 		}
 		out = append(out, f)
@@ -465,7 +499,7 @@ func (db *DB) RecentFeedback(ctx context.Context, limit int) ([]FeedbackEntry, e
 		limit = 10
 	}
 	rows, err := db.QueryContext(ctx, `
-		SELECT id, asked_at, question, answer, provider FROM agent_feedback
+		SELECT id, asked_at, question, answer, provider, recommendations, recommendation_status FROM agent_feedback
 		ORDER BY asked_at DESC LIMIT $1
 	`, limit)
 	if err != nil {
@@ -475,10 +509,42 @@ func (db *DB) RecentFeedback(ctx context.Context, limit int) ([]FeedbackEntry, e
 	var out []FeedbackEntry
 	for rows.Next() {
 		var f FeedbackEntry
-		if err := rows.Scan(&f.ID, &f.AskedAt, &f.Question, &f.Answer, &f.Provider); err != nil {
+		if err := rows.Scan(&f.ID, &f.AskedAt, &f.Question, &f.Answer, &f.Provider, &f.Recommendations, &f.RecommendationStatus); err != nil {
 			return nil, err
 		}
 		out = append(out, f)
 	}
 	return out, rows.Err()
+}
+
+// FeedbackEntryByID looks up one feedback entry (used to apply/dismiss its
+// attached recommendation).
+func (db *DB) FeedbackEntryByID(ctx context.Context, id uuid.UUID) (*FeedbackEntry, error) {
+	var f FeedbackEntry
+	err := db.QueryRowContext(ctx, `
+		SELECT id, asked_at, question, answer, provider, recommendations, recommendation_status
+		FROM agent_feedback WHERE id = $1
+	`, id).Scan(&f.ID, &f.AskedAt, &f.Question, &f.Answer, &f.Provider, &f.Recommendations, &f.RecommendationStatus)
+	if err == sql.ErrNoRows {
+		return nil, ErrNotFound
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &f, nil
+}
+
+// UpdateFeedbackRecommendationStatus marks a feedback entry's attached
+// recommendation as "applied" or "dismissed" (from its initial "pending").
+func (db *DB) UpdateFeedbackRecommendationStatus(ctx context.Context, id uuid.UUID, status string) error {
+	_, err := db.ExecContext(ctx, `UPDATE agent_feedback SET recommendation_status = $1 WHERE id = $2`, status, id)
+	return err
+}
+
+// UpdatePortfolioMinSignalStrength changes a portfolio's trade-signal
+// threshold (1-10) — used when the user applies a coach recommendation, or
+// to tune a profile manually without a code deploy.
+func (db *DB) UpdatePortfolioMinSignalStrength(ctx context.Context, portfolioID uuid.UUID, value int) error {
+	_, err := db.ExecContext(ctx, `UPDATE portfolios SET min_signal_strength = $1 WHERE id = $2`, value, portfolioID)
+	return err
 }

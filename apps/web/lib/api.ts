@@ -230,9 +230,28 @@ export type AgentPortfolio = {
   cash_usd: number;
   positions_value_usd: number;
   total_equity_usd: number;
+  min_signal_strength: number;
   positions: AgentPosition[];
   recent_trades: AgentTrade[];
 };
+
+export type AgentBenchmark = {
+  label: string;
+  ticker: string;
+  cash_usd: number;
+  shares_held: number;
+  positions_value_usd: number;
+  total_equity_usd: number;
+  total_funded_usd: number;
+  return_pct: number;
+};
+
+export async function getAgentBenchmark(ticker = "SPY"): Promise<AgentBenchmark | null> {
+  if (!hasApi()) return null;
+  const r = await fetch(`${getApiUrl()}/api/agents/benchmark?ticker=${encodeURIComponent(ticker)}`);
+  if (!r.ok) throw new Error("Failed to fetch benchmark");
+  return r.json();
+}
 
 export type AgentDateRange = { from: string; to: string };
 
@@ -245,13 +264,40 @@ export async function getAgentPortfolios(range?: AgentDateRange): Promise<AgentP
   return (data as { portfolios?: AgentPortfolio[] }).portfolios ?? [];
 }
 
+export type AgentRecommendation = {
+  profile: string;
+  field: string;
+  current_value: number;
+  suggested_value: number;
+  reason: string;
+};
+
 export type AgentFeedbackEntry = {
   id: string;
   asked_at: string;
   question: string;
   answer: string;
   provider: string;
+  recommendations?: AgentRecommendation[] | null;
+  recommendation_status: string; // "none" | "pending" | "applied" | "dismissed"
 };
+
+export async function respondToRecommendation(
+  feedbackId: string,
+  action: "apply" | "dismiss"
+): Promise<{ id: string; recommendation_status: string }> {
+  if (!hasApi()) throw new Error("API no configurada");
+  const r = await fetch(`${getApiUrl()}/api/agents/feedback/${encodeURIComponent(feedbackId)}/recommendation`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ action }),
+  });
+  if (!r.ok) {
+    const err = await r.json().catch(() => ({}));
+    throw new Error((err as { error?: string }).error || "Failed to respond to recommendation");
+  }
+  return r.json();
+}
 
 export async function getAgentFeedback(range?: AgentDateRange): Promise<AgentFeedbackEntry[]> {
   if (!hasApi()) return [];

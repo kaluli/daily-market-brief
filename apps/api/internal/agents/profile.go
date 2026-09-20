@@ -14,10 +14,12 @@ var SimulationStart = time.Date(2026, 3, 1, 0, 0, 0, 0, time.UTC)
 type RiskProfile struct {
 	Name                  string // matches portfolios.risk_profile in the DB
 	Label                 string
-	MinSignalStrength     int     // 1-10; ignore analyses below this
+	MinSignalStrength     int     // 1-10; ignore analyses below this (default for new portfolios — live value lives in the DB, see Portfolio.MinSignalStrength)
 	MaxPositionPct        float64 // fraction of available cash to put into one new buy
 	MaxOpenPositions      int     // cap on distinct tickers held at once
 	MonthlyAllowanceCents int64   // fictitious cash credited once per calendar month
+	MaxConcentrationPct   float64 // cap on one ticker's value as a fraction of total equity
+	MaxDrawdownPct        float64 // pause new buys (sells still allowed) once equity falls this far below total cash funded so far
 }
 
 // Risky: acts on lower-confidence signals, bets a bigger slice of cash per
@@ -29,6 +31,8 @@ var Risky = RiskProfile{
 	MaxPositionPct:        0.30,
 	MaxOpenPositions:      8,
 	MonthlyAllowanceCents: 500000, // $5,000.00
+	MaxConcentrationPct:   0.40,
+	MaxDrawdownPct:        0.35,
 }
 
 // Conservative: only acts on high-confidence signals, bets a smaller slice
@@ -40,6 +44,8 @@ var Conservative = RiskProfile{
 	MaxPositionPct:        0.12,
 	MaxOpenPositions:      4,
 	MonthlyAllowanceCents: 500000, // $5,000.00
+	MaxConcentrationPct:   0.25,
+	MaxDrawdownPct:        0.20,
 }
 
 // All is every configured risk profile, used to loop over both agents.

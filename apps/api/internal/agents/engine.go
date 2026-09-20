@@ -43,11 +43,13 @@ type TradeView struct {
 
 // DayResult summarizes what one risk-profile agent did for a single day.
 type DayResult struct {
-	Profile      string      `json:"risk_profile"`
-	NewsAnalyzed int         `json:"news_analyzed"`
-	Trades       []TradeView `json:"trades"`
-	CashAfterUSD float64     `json:"cash_after_usd"`
-	Funded       bool        `json:"monthly_allowance_applied"`
+	Profile              string      `json:"risk_profile"`
+	NewsAnalyzed         int         `json:"news_analyzed"`
+	Trades               []TradeView `json:"trades"`
+	CashAfterUSD         float64     `json:"cash_after_usd"`
+	Funded               bool        `json:"monthly_allowance_applied"`
+	CircuitBreakerActive bool        `json:"circuit_breaker_active"`
+	MinSignalStrength    int         `json:"min_signal_strength"`
 }
 
 // RunDay funds each portfolio's monthly allowance if due, analyzes the day's
@@ -84,7 +86,7 @@ func RunDay(ctx context.Context, database *db.DB, analyzer analyst.Analyzer, day
 
 	results := make([]DayResult, 0, len(All))
 	for _, profile := range All {
-		pf, err := database.EnsurePortfolio(ctx, profile.Name, day, profile.MonthlyAllowanceCents)
+		pf, err := database.EnsurePortfolio(ctx, profile.Name, day, profile.MonthlyAllowanceCents, profile.MinSignalStrength)
 		if err != nil {
 			return nil, fmt.Errorf("ensure portfolio %s: %w", profile.Name, err)
 		}
@@ -109,13 +111,36 @@ func RunDay(ctx context.Context, database *db.DB, analyzer analyst.Analyzer, day
 		openCount := len(positions)
 		cashCents := pf.CashCents
 
+		// Risk controls: concentration limit and a drawdown circuit breaker.
+		// Both use a same-day snapshot (positions priced once, before the
+		// loop) rather than tracking a historical equity peak, which would
+		// need a new equity-snapshot table — a known simplification.
+		positionsValueCents, err := database.PositionsMarketValueCents(ctx, pf.ID)
+		if err != nil {
+			return nil, err
+		}
+		totalEquityCents := cashCents + positionsValueCents
+		monthsFunded := int64((day.Year()-SimulationStart.Year())*12+int(day.Month())-int(SimulationStart.Month())) + 1
+		if monthsFunded < 1 {
+			monthsFunded = 1
+		}
+		totalFundedCents := monthsFunded * profile.MonthlyAllowanceCents
+		drawdownPct := 0.0
+		if totalFundedCents > 0 && totalEquityCents < totalFundedCents {
+			drawdownPct = 1 - float64(totalEquityCents)/float64(totalFundedCents)
+		}
+		circuitBreakerActive := drawdownPct > profile.MaxDrawdownPct
+		if circuitBreakerActive {
+			log.Printf("agents run-day %s: agente %s -> circuit breaker activo (drawdown %.0f%%), solo se permiten ventas", day.Format("2006-01-02"), profile.Name, drawdownPct*100)
+		}
+
 		var trades []TradeView
 		for _, a := range analyses {
 			if a.result.Relevance != analyst.RelevanceMarketMoving {
 				continue
 			}
 			strength, _ := strconv.Atoi(strings.TrimSpace(a.result.SignalStrength))
-			if strength < profile.MinSignalStrength {
+			if strength < pf.MinSignalStrength {
 				continue
 			}
 			for _, assetName := range a.result.AffectedAssets {
@@ -134,6 +159,9 @@ func RunDay(ctx context.Context, database *db.DB, analyzer analyst.Analyzer, day
 
 				switch bias {
 				case "bullish":
+					if circuitBreakerActive {
+						continue // drawdown breaker: no new buys, only de-risking sells
+					}
 					if openCount >= profile.MaxOpenPositions && heldQty[ticker] == 0 {
 						continue
 					}
@@ -145,6 +173,20 @@ func RunDay(ctx context.Context, database *db.DB, analyzer analyst.Analyzer, day
 					costCents := qty * priceCents
 					if costCents > cashCents {
 						continue
+					}
+					// Concentration limit: cap this ticker's post-trade value
+					// at MaxConcentrationPct of total equity.
+					maxTickerValueCents := int64(float64(totalEquityCents) * profile.MaxConcentrationPct)
+					currentTickerValueCents := heldQty[ticker] * priceCents
+					if currentTickerValueCents >= maxTickerValueCents {
+						continue // already at/over the concentration cap for this ticker
+					}
+					if allowed := maxTickerValueCents - currentTickerValueCents; costCents > allowed {
+						qty = allowed / priceCents
+						if qty < 1 {
+							continue
+						}
+						costCents = qty * priceCents
 					}
 					t, err := database.ExecuteTrade(ctx, pf.ID, ticker, "buy", qty, priceCents, a.item.ID, reasoning, day)
 					if err != nil {
@@ -176,11 +218,13 @@ func RunDay(ctx context.Context, database *db.DB, analyzer analyst.Analyzer, day
 
 		log.Printf("agents run-day %s: agente %s -> %d operaciones, cash $%.2f", day.Format("2006-01-02"), profile.Name, len(trades), float64(cashCents)/100)
 		results = append(results, DayResult{
-			Profile:      profile.Name,
-			NewsAnalyzed: len(analyses),
-			Trades:       trades,
-			CashAfterUSD: float64(cashCents) / 100,
-			Funded:       funded,
+			Profile:              profile.Name,
+			NewsAnalyzed:         len(analyses),
+			Trades:               trades,
+			CashAfterUSD:         float64(cashCents) / 100,
+			Funded:               funded,
+			CircuitBreakerActive: circuitBreakerActive,
+			MinSignalStrength:    pf.MinSignalStrength,
 		})
 	}
 	return results, nil
