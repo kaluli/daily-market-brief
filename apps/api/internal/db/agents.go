@@ -485,9 +485,11 @@ func (db *DB) FeedbackInRange(ctx context.Context, from, to time.Time) ([]Feedba
 	var out []FeedbackEntry
 	for rows.Next() {
 		var f FeedbackEntry
-		if err := rows.Scan(&f.ID, &f.AskedAt, &f.Question, &f.Answer, &f.Provider, &f.Recommendations, &f.RecommendationStatus); err != nil {
+		var recs []byte // NULL can't scan directly into *json.RawMessage; go through []byte
+		if err := rows.Scan(&f.ID, &f.AskedAt, &f.Question, &f.Answer, &f.Provider, &recs, &f.RecommendationStatus); err != nil {
 			return nil, err
 		}
+		f.Recommendations = recs
 		out = append(out, f)
 	}
 	return out, rows.Err()
@@ -509,9 +511,11 @@ func (db *DB) RecentFeedback(ctx context.Context, limit int) ([]FeedbackEntry, e
 	var out []FeedbackEntry
 	for rows.Next() {
 		var f FeedbackEntry
-		if err := rows.Scan(&f.ID, &f.AskedAt, &f.Question, &f.Answer, &f.Provider, &f.Recommendations, &f.RecommendationStatus); err != nil {
+		var recs []byte // NULL can't scan directly into *json.RawMessage; go through []byte
+		if err := rows.Scan(&f.ID, &f.AskedAt, &f.Question, &f.Answer, &f.Provider, &recs, &f.RecommendationStatus); err != nil {
 			return nil, err
 		}
+		f.Recommendations = recs
 		out = append(out, f)
 	}
 	return out, rows.Err()
@@ -521,16 +525,18 @@ func (db *DB) RecentFeedback(ctx context.Context, limit int) ([]FeedbackEntry, e
 // attached recommendation).
 func (db *DB) FeedbackEntryByID(ctx context.Context, id uuid.UUID) (*FeedbackEntry, error) {
 	var f FeedbackEntry
+	var recs []byte // NULL can't scan directly into *json.RawMessage; go through []byte
 	err := db.QueryRowContext(ctx, `
 		SELECT id, asked_at, question, answer, provider, recommendations, recommendation_status
 		FROM agent_feedback WHERE id = $1
-	`, id).Scan(&f.ID, &f.AskedAt, &f.Question, &f.Answer, &f.Provider, &f.Recommendations, &f.RecommendationStatus)
+	`, id).Scan(&f.ID, &f.AskedAt, &f.Question, &f.Answer, &f.Provider, &recs, &f.RecommendationStatus)
 	if err == sql.ErrNoRows {
 		return nil, ErrNotFound
 	}
 	if err != nil {
 		return nil, err
 	}
+	f.Recommendations = recs
 	return &f, nil
 }
 
